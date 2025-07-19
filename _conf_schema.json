@@ -1,0 +1,74 @@
+{
+  "enable_plugin": {
+    "description": "插件总开关",
+    "type": "bool",
+    "default": true,
+    "hint": "关闭后，此插件所有功能都将失效"
+  },
+  "enable_llm_process": {
+    "description": "启用LLM模拟水晶球过程",
+    "type": "bool",
+    "default": true,
+    "hint": "启用后将调用LLM生成水晶球显示过程的描述"
+  },
+  "process_prompt": {
+    "description": "水晶球过程提示词",
+    "type": "text",
+    "default": "模拟一个水晶球显示人品值的神秘过程。用户名:{user_name}，人品值:{value}，运势描述:{desc}。请用50字以内生动描述水晶球的变化过程，最后告知人品值。",
+    "hint": "可用变量: {user_name}, {value}, {desc}",
+    "editor_mode": true,
+    "editor_language": "text"
+  },
+  "enable_llm_advice": {
+    "description": "启用LLM建议功能",
+    "type": "bool",
+    "default": true,
+    "hint": "启用后将调用LLM针对人品值给出建议或吐槽"
+  },
+  "advice_prompt": {
+    "description": "建议生成提示词",
+    "type": "text",
+    "default": "根据用户的人品值给出简短建议或吐槽。用户名:{user_name}，人品值:{value}(0-100)，运势:{desc}。请用30字以内幽默地给出建议。",
+    "hint": "可用变量: {user_name}, {value}, {desc}",
+    "editor_mode": true,
+    "editor_language": "text"
+  },
+  "enable_rank": {
+    "description": "启用排行榜功能",
+    "type": "bool",
+    "default": true,
+    "hint": "启用后可以使用/jrrp_rank查看今日排行"
+  },
+  "use_hash_seed": {
+    "description": "使用哈希种子",
+    "type": "bool",
+    "default": true,
+    "hint": "确保同一用户同一天多次查询结果一致"
+  },
+  "salt": {
+    "description": "哈希盐值",
+    "type": "string",
+    "default": "astrbot_jrrp",
+    "hint": "用于生成随机种子，修改后会改变所有人的人品值"
+  },
+  "ranges": {
+    "description": "人品值范围配置",
+    "type": "list",
+    "default": [
+      {"min": 0, "max": 0, "description": "极其倒霉", "emoji": "💀", "weight": 0.5},
+      {"min": 1, "max": 2, "description": "倒大霉", "emoji": "😱", "weight": 1},
+      {"min": 3, "max": 10, "description": "十分不顺", "emoji": "😣", "weight": 5},
+      {"min": 11, "max": 20, "description": "略微不顺", "emoji": "😕", "weight": 10},
+      {"min": 21, "max": 30, "description": "正常运气", "emoji": "😐", "weight": 20},
+      {"min": 31, "max": 60, "description": "还不错", "emoji": "😊", "weight": 30},
+      {"min": 61, "max": 80, "description": "运气很好", "emoji": "😄", "weight": 20},
+      {"min": 81, "max": 98, "description": "好运连连", "emoji": "🎉", "weight": 10},
+      {"min": 99, "max": 99, "description": "极其好运", "emoji": "🌟", "weight": 1},
+      {"min": 100, "max": 100, "description": "万事皆允", "emoji": "👑", "weight": 0.5}
+    ],
+    "hint": "每个范围包含min(最小值)、max(最大值)、description(描述)、emoji(表情)、weight(权重)",
+    "editor_mode": true,
+    "editor_language": "json",
+    "editor_theme": "vs-dark"
+  }
+}
