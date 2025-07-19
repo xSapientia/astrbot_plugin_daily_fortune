@@ -5,7 +5,7 @@
     "default": true,
     "hint": "关闭后所有功能将停用"
   },
-  "use_forward_message": {
+   "use_forward_message": {
     "description": "使用合并转发消息",
     "type": "bool",
     "default": false,
