@@ -5,17 +5,24 @@
     "default": true,
     "hint": "关闭后所有功能将停用"
   },
-   "use_forward_message": {
-    "description": "使用合并转发消息",
-    "type": "bool",
-    "default": false,
-    "hint": "启用后将使用合并转发形式发送消息（仅支持QQ平台）"
-  },
   "min_fortune": {
     "description": "人品值下限",
     "type": "int",
     "default": 0,
     "hint": "人品值的最小值，默认为0"
+  },
+  "use_forward_message": {
+    "description": "使用合并转发消息",
+    "type": "bool",
+    "default": false,
+    "hint": "启用后将使用合并转发形式发送消息（仅支持QQ平台）"
+  },
+   "forward_style": {
+    "description": "转发消息样式",
+    "type": "string",
+    "default": "merged",
+    "hint": "选择消息发送方式：merged(合并转发) 或 separate(分条发送)",
+    "options": ["merged", "separate"]
   },
   "max_fortune": {
     "description": "人品值上限",
