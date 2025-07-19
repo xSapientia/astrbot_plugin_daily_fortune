@@ -191,7 +191,7 @@ class JRRPPlugin(Star):
         today_users.sort(key=lambda x: x["value"], reverse=True)
 
         # 生成排行榜文本
-        rank_text = "📊 今日人品排行榜\n" + "=<font color=#AAAAAA>20 + "\n"
+        rank_text = "📊 今日人品排行榜\n" + "="*20 + "\n"
         for i, user in enumerate(today_users[:10], 1):  # 只显示前10名
             medal = ""
             if i == 1:
