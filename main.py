@@ -1,472 +1,198 @@
-from astrbot.api.event import filter, AstrMessageEvent
-from astrbot.api.star import Context, Star, register
-from astrbot.api import logger, AstrBotConfig
-import json
-import random
-import os
-import shutil
-from datetime import datetime, date
-from typing import Dict, List, Optional
-import aiofiles
+import aiohttp
 import asyncio
-import threading
+from typing import Optional, Dict, Any, List, Tuple
+from bs4 import BeautifulSoup
+import re
 
-# 全局锁，防止并发执行
-_fortune_lock = asyncio.Lock()
+# 确保从正确的API导入 AstrBotConfig
+from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
+from astrbot.api.star import Context, Star, register
+from astrbot.api import logger
+# AstrBotConfig 通常在初始化时由核心传入，如果需要类型提示，可以从 astrbot.api 导入，但具体实现可能在 core
+try:
+    from astrbot.api import AstrBotConfig
+except ImportError:
+    # 兼容不同版本的导入路径
+    from astrbot.config import AstrBotConfig
 
+import astrbot.api.message_components as Comp
+
+# Steam Tag ID 映射 (常用中文标签到ID的映射)
+STEAM_TAG_MAP = {
+    "角色扮演": 122, "RPG": 122,
+    "策略": 9,
+    "冒险": 21,
+    "独立": 492,
+    "动作": 19,
+    "模拟": 599,
+    "休闲": 597,
+    "大型多人在线": 128, "MMO": 128,
+    "竞速": 699,
+    "体育": 701,
+    "免费": 113, "Free to Play": 113,
+    "射击": 1774, "FPS": 1663,
+    "开放世界": 1695,
+    "生存": 1662,
+    "恐怖": 1667,
+    "科幻": 3942,
+    "沙盒": 1718,
+    "合作": 1685,
+}
+
+# 更新注册信息以匹配文件名（如果需要）
 @register(
-    "astrbot_plugin_daily_fortune",
-    "xSapientia",
-    "今日人品测试插件 - 测试你的今日运势",
-    "0.1.2",
-    "https://github.com/xSapientia/astrbot_plugin_daily_fortune",
+    "astrbot_plugin_steam_search",
+    "MAAI_Claude", # 更新作者
+    "一个用于响应LLM调用，查询Steam游戏信息的插件(高级版)",
+    "1.1.0" # 更新版本
 )
-class DailyFortunePlugin(Star):
-    _instance = None
-    _initialized = False
-
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super().__new__(cls)
-        return cls._instance
-
-    def __init__(self, context: Context, config: AstrBotConfig = None):
-        # 防止重复初始化
-        if DailyFortunePlugin._initialized:
-            logger.warning("DailyFortunePlugin already initialized, skipping...")
-            return
-
+class AdvancedSteamSearchPlugin(Star):
+    # ... (__init__ 和 terminate 方法保持不变)
+    def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
-        self.context = context
-        self.config = config if config else {}
-
-        # 设置默认配置
-        self.config.setdefault("enable_plugin", True)
-        self.config.setdefault("min_fortune", 0)
-        self.config.setdefault("max_fortune", 100)
-        self.config.setdefault("use_llm", True)
-        self.config.setdefault("process_prompt", "你是一个神秘的占卜师，正在使用水晶球为用户[{name}]占卜今日人品值。请描述水晶球中浮现的画面和占卜过程，最后揭示今日人品值为{fortune}。描述要神秘且富有画面感，50字以内。")
-        self.config.setdefault("advice_prompt", "用户[{name}]的今日人品值为{fortune}，运势等级为{level}。请根据这个人品值给出今日建议或吐槽，要幽默风趣，50字以内。")
-
-        # 数据文件路径 - 使用plugin_data目录
-        self.data_dir = os.path.join("data", "plugin_data", "astrbot_plugin_daily_fortune")
-        self.fortune_file = os.path.join(self.data_dir, "fortunes.json")
-        self.history_file = os.path.join(self.data_dir, "history.json")
-
-        # 确保数据目录存在
-        os.makedirs(self.data_dir, exist_ok=True)
-
-        # 运势等级定义
-        self.fortune_levels = {
-            (0, 0): "极其倒霉",
-            (1, 2): "倒大霉",
-            (3, 10): "十分不顺",
-            (11, 20): "略微不顺",
-            (21, 30): "正常运气",
-            (31, 98): "好运",
-            (99, 99): "极其好运",
-            (100, 100): "万事皆允"
-        }
-
-        # 请求去重
-        self._request_cache = {}
-        self._cache_timeout = 5  # 5秒内相同请求视为重复
-
-        DailyFortunePlugin._initialized = True
-        logger.info("今日人品插件 v0.1.2 加载成功！")
-
-    async def load_data(self, file_path: str) -> dict:
-        """异步加载JSON数据"""
-        if not os.path.exists(file_path):
-            return {}
-        try:
-            async with aiofiles.open(file_path, 'r', encoding='utf-8') as f:
-                content = await f.read()
-                return json.loads(content) if content else {}
-        except Exception as e:
-            logger.error(f"加载数据失败 {file_path}: {e}")
-            return {}
-
-    async def save_data(self, file_path: str, data: dict):
-        """异步保存JSON数据"""
-        try:
-            async with aiofiles.open(file_path, 'w', encoding='utf-8') as f:
-                await f.write(json.dumps(data, ensure_ascii=False, indent=2))
-        except Exception as e:
-            logger.error(f"保存数据失败 {file_path}: {e}")
-
-    def get_fortune_level(self, fortune: int) -> str:
-        """获取运势等级"""
-        for (min_val, max_val), level in self.fortune_levels.items():
-            if min_val <= fortune <= max_val:
-                return level
-        return "正常运气"
-
-    def get_today_key(self) -> str:
-        """获取今日日期键"""
-        return date.today().strftime("%Y-%m-%d")
-
-    async def get_user_name(self, event: AstrMessageEvent) -> str:
-        """获取用户名称"""
-        name = event.get_sender_name()
-        if not name or name == "未知":
-            name = f"用户{event.get_sender_id()[-4:]}"
-        return name
-
-    def _check_duplicate_request(self, user_id: str, command: str) -> bool:
-        """检查是否是重复请求"""
-        current_time = datetime.now()
-        cache_key = f"{user_id}:{command}"
-
-        if cache_key in self._request_cache:
-            last_time = self._request_cache[cache_key]
-            if (current_time - last_time).total_seconds() < self._cache_timeout:
-                logger.warning(f"Duplicate request detected for {cache_key}")
-                return True
-
-        self._request_cache[cache_key] = current_time
-        # 清理过期缓存
-        expired_keys = []
-        for key, time in self._request_cache.items():
-            if (current_time - time).total_seconds() > self._cache_timeout:
-                expired_keys.append(key)
-        for key in expired_keys:
-            del self._request_cache[key]
-
-        return False
-
-    @filter.command("jrrp", alias={"-jrrp"})
-    async def daily_fortune(self, event: AstrMessageEvent):
-        """查看今日人品"""
-        async with _fortune_lock:
-            try:
-                # 检查是否是重复请求
-                user_id = event.get_sender_id()
-                if self._check_duplicate_request(user_id, "jrrp"):
-                    logger.info(f"Ignored duplicate jrrp request from {user_id}")
-                    return
-
-                # 检查插件是否启用
-                if not self.config.get("enable_plugin", True):
-                    yield event.plain_result("今日人品插件已关闭")
-                    return
-
-                user_name = await self.get_user_name(event)
-                today_key = self.get_today_key()
-
-                # 加载今日人品数据
-                fortunes = await self.load_data(self.fortune_file)
-
-                if today_key not in fortunes:
-                    fortunes[today_key] = {}
-
-                # 检查用户今日是否已经测试过
-                if user_id in fortunes[today_key]:
-                    fortune_data = fortunes[today_key][user_id]
-                    fortune_value = fortune_data["value"]
-                    level = self.get_fortune_level(fortune_value)
-
-                    result = f"📌 {user_name} 今天已经查询过了哦~\n"
-                    result += f"今日人品值: {fortune_value}\n"
-                    result += f"运势: {level} 😊"
-
-                    yield event.plain_result(result)
-                    return
-
-                # 生成新的人品值
-                min_val = self.config.get("min_fortune", 0)
-                max_val = self.config.get("max_fortune", 100)
-                fortune_value = random.randint(min_val, max_val)
-                level = self.get_fortune_level(fortune_value)
-
-                logger.info(f"Generated fortune for {user_id}: {fortune_value}")
-
-                # 保存今日人品
-                fortunes[today_key][user_id] = {
-                    "value": fortune_value,
-                    "name": user_name,
-                    "time": datetime.now().strftime("%H:%M:%S")
-                }
-                await self.save_data(self.fortune_file, fortunes)
-
-                # 保存到历史记录
-                history = await self.load_data(self.history_file)
-                if user_id not in history:
-                    history[user_id] = {}
-                history[user_id][today_key] = {
-                    "value": fortune_value,
-                    "name": user_name
-                }
-                await self.save_data(self.history_file, history)
-
-                # 构建基础回复
-                result = f"【{user_name}】开始测试今日人品...\n\n"
-
-                # 如果启用LLM，生成占卜过程描述
-                process_text = ""
-                advice = ""
-
-                if self.config.get("use_llm", True) and self.context.get_using_provider():
-                    try:
-                        # 生成占卜过程
-                        process_prompt = self.config.get("process_prompt", "").format(
-                            name=user_name,
-                            fortune=fortune_value
-                        )
-                        process_resp = await self.context.get_using_provider().text_chat(
-                            prompt=process_prompt,
-                            session_id=None,
-                            contexts=[],
-                            system_prompt="你是一个神秘的占卜师，请用50字以内描述占卜过程。"
-                        )
-                        if process_resp and process_resp.completion_text:
-                            process_text = process_resp.completion_text
-
-                        # 生成建议
-                        advice_prompt = self.config.get("advice_prompt", "").format(
-                            name=user_name,
-                            fortune=fortune_value,
-                            level=level
-                        )
-                        advice_resp = await self.context.get_using_provider().text_chat(
-                            prompt=advice_prompt,
-                            session_id=None,
-                            contexts=[],
-                            system_prompt="你是一个幽默的占卜师，请用50字以内给出建议或吐槽。"
-                        )
-                        if advice_resp and advice_resp.completion_text:
-                            advice = advice_resp.completion_text
-                    except Exception as e:
-                        logger.error(f"LLM调用失败: {e}")
-
-                # 使用默认文本
-                if not process_text:
-                    process_text = "水晶球中浮现出神秘的光芒..."
-                if not advice:
-                    advice = self._get_default_advice(fortune_value, level)
-
-                # 组装完整消息
-                result += f"🔮 {process_text}\n\n"
-                result += f"💎 人品值：{fortune_value}\n"
-                result += f"✨ 运势：{level}\n"
-                result += f"💬 建议：{advice}"
-
-                yield event.plain_result(result)
-
-            except Exception as e:
-                logger.error(f"处理今日人品指令时出错: {e}", exc_info=True)
-                yield event.plain_result("抱歉，处理您的请求时出现了错误。")
-
-    def _get_default_advice(self, fortune: int, level: str) -> str:
-        """获取默认建议"""
-        advice_map = {
-            "极其倒霉": "今天还是躺平吧，啥也别干最安全！",
-            "倒大霉": "建议今天低调行事，小心为妙。",
-            "十分不顺": "多喝热水，保持微笑，会好起来的。",
-            "略微不顺": "平常心对待，小挫折而已。",
-            "正常运气": "普普通通的一天，按部就班就好。",
-            "好运": "运气不错哦，可以试试买个彩票？",
-            "极其好运": "天选之子！今天做什么都会顺利！",
-            "万事皆允": "恭喜！今天你就是世界的主角！"
-        }
-        return advice_map.get(level, "保持平常心，做好自己。")
-
-    @filter.command("jrrprank")
-    async def fortune_rank(self, event: AstrMessageEvent):
-        """查看群聊内今日人品排行"""
-        async with _fortune_lock:
-            try:
-                # 检查是否是重复请求
-                user_id = event.get_sender_id()
-                if self._check_duplicate_request(user_id, "jrrprank"):
-                    return
-
-                if not self.config.get("enable_plugin", True):
-                    yield event.plain_result("今日人品插件已关闭")
-                    return
-
-                if event.is_private_chat():
-                    yield event.plain_result("人品排行榜仅在群聊中可用")
-                    return
-
-                today_key = self.get_today_key()
-
-                # 直接从全局人品数据中读取
-                fortunes = await self.load_data(self.fortune_file)
-
-                if today_key not in fortunes or not fortunes[today_key]:
-                    yield event.plain_result("📊 今天还没有人查询人品哦~")
-                    return
-
-                # 获取所有今日人品数据并排序
-                today_fortunes = fortunes[today_key]
-                sorted_fortunes = sorted(
-                    today_fortunes.items(),
-                    key=lambda x: x[1]["value"],
-                    reverse=True
-                )
-
-                # 构建排行榜
-                result = f"📊【今日人品排行榜】{today_key}\n"
-                result += "━━━━━━━━━━━━━━━\n"
-
-                medals = ["🥇", "🥈", "🥉"]
-                for idx, (user_id, data) in enumerate(sorted_fortunes[:10]):
-                    medal = medals[idx] if idx < 3 else f"{idx+1}."
-                    name = data["name"]
-                    value = data["value"]
-                    level = self.get_fortune_level(value)
-                    result += f"{medal} {name}: {value} ({level})\n"
-
-                if len(sorted_fortunes) > 10:
-                    result += f"\n...共 {len(sorted_fortunes)} 人已测试"
-
-                yield event.plain_result(result)
-
-            except Exception as e:
-                logger.error(f"处理人品排行指令时出错: {e}", exc_info=True)
-                yield event.plain_result("抱歉，获取排行榜时出现了错误。")
-
-    @filter.command("jrrphistory", alias={"jrrphi"})
-    async def fortune_history(self, event: AstrMessageEvent):
-        """查看个人人品历史"""
-        async with _fortune_lock:
-            try:
-                # 检查是否是重复请求
-                user_id = event.get_sender_id()
-                if self._check_duplicate_request(user_id, "jrrphistory"):
-                    return
-
-                if not self.config.get("enable_plugin", True):
-                    yield event.plain_result("今日人品插件已关闭")
-                    return
-
-                user_name = await self.get_user_name(event)
-                history = await self.load_data(self.history_file)
-
-                if user_id not in history or not history[user_id]:
-                    yield event.plain_result(f"【{user_name}】还没有人品测试记录")
-                    return
-
-                user_history = history[user_id]
-                sorted_history = sorted(user_history.items(), reverse=True)[:10]
-
-                # 计算统计信息
-                all_values = [record["value"] for record in user_history.values()]
-                avg_fortune = sum(all_values) / len(all_values)
-                max_fortune = max(all_values)
-                min_fortune = min(all_values)
-
-                result = f"📈【{user_name}的人品历史】\n"
-                result += "━━━━━━━━━━━━━━━\n"
-
-                for date_key, data in sorted_history:
-                    value = data["value"]
-                    level = self.get_fortune_level(value)
-                    result += f"📅 {date_key}: {value} ({level})\n"
-
-                result += "\n📊 统计信息：\n"
-                result += f"平均人品：{avg_fortune:.1f}\n"
-                result += f"最高人品：{max_fortune}\n"
-                result += f"最低人品：{min_fortune}\n"
-                result += f"测试次数：{len(all_values)}"
-
-                yield event.plain_result(result)
-
-            except Exception as e:
-                logger.error(f"处理人品历史指令时出错: {e}", exc_info=True)
-                yield event.plain_result("抱歉，获取历史记录时出现了错误。")
-
-    @filter.command("jrrpreset")
-    @filter.permission_type(filter.PermissionType.ADMIN)
-    async def reset_all_fortune(self, event: AstrMessageEvent, confirm: str = ""):
-        """清除所有数据（仅管理员）"""
-        async with _fortune_lock:
-            try:
-                if not event.is_admin():
-                    yield event.plain_result("❌ 只有管理员才能使用此命令")
-                    return
-
-                # 检查确认参数
-                if confirm != "--confirm":
-                    yield event.plain_result("⚠️ 警告：此操作将清除所有人品数据！\n如果确定要继续，请使用：/jrrpreset --confirm")
-                    return
-
-                # 清除所有数据文件
-                try:
-                    if os.path.exists(self.fortune_file):
-                        os.remove(self.fortune_file)
-                    if os.path.exists(self.history_file):
-                        os.remove(self.history_file)
-
-                    yield event.plain_result("✅ 所有人品数据已清除")
-                    logger.info(f"Admin {event.get_sender_id()} reset all fortune data")
-                except Exception as e:
-                    yield event.plain_result(f"❌ 清除数据时出错: {str(e)}")
-
-            except Exception as e:
-                logger.error(f"清除所有数据时出错: {e}", exc_info=True)
-                yield event.plain_result("抱歉，清除数据时出现了错误。")
-
-    @filter.command("jrrpdelete", alias={"jrrpdel"})
-    async def delete_user_fortune(self, event: AstrMessageEvent):
-        """清除使用人的数据"""
-        async with _fortune_lock:
-            try:
-                user_id = event.get_sender_id()
-                user_name = await self.get_user_name(event)
-
-                # 清除今日人品数据
-                fortunes = await self.load_data(self.fortune_file)
-                deleted = False
-
-                for date_key in list(fortunes.keys()):
-                    if user_id in fortunes[date_key]:
-                        del fortunes[date_key][user_id]
-                        deleted = True
-                        # 如果这一天没有数据了，删除整个日期键
-                        if not fortunes[date_key]:
-                            del fortunes[date_key]
-
-                if deleted:
-                    await self.save_data(self.fortune_file, fortunes)
-
-                # 清除历史记录
-                history = await self.load_data(self.history_file)
-                history_deleted = False
-
-                if user_id in history:
-                    del history[user_id]
-                    history_deleted = True
-                    await self.save_data(self.history_file, history)
-
-                if deleted or history_deleted:
-                    yield event.plain_result(f"✅ 已清除 {user_name} 的所有人品数据")
-                    logger.info(f"User {user_id} deleted their fortune data")
-                else:
-                    yield event.plain_result(f"ℹ️ {user_name} 没有人品数据记录")
-
-            except Exception as e:
-                logger.error(f"清除用户数据时出错: {e}", exc_info=True)
-                yield event.plain_result("抱歉，清除数据时出现了错误。")
+        self.session = aiohttp.ClientSession()
+        self.config = config
+        # 从配置中读取最大结果数，如果未配置则默认为3
+        self.max_results = self.config.get("max_results", 3)
+        logger.info(f"[Steam Plugin] 插件已加载，最大返回结果数: {self.max_results}")
 
     async def terminate(self):
-        """插件卸载时调用"""
-        try:
-            # 删除配置文件
-            config_file = os.path.join("data", "config", "astrbot_plugin_daily_fortune_config.json")
-            if os.path.exists(config_file):
-                os.remove(config_file)
-                logger.info(f"Removed config file: {config_file}")
+        await self.session.close()
 
-            # 删除数据目录
-            if os.path.exists(self.data_dir):
-                shutil.rmtree(self.data_dir)
-                logger.info(f"Removed data directory: {self.data_dir}")
+    # ... (_map_tags, _advanced_steam_search, _parse_search_results 方法保持不变)
+    def _map_tags(self, tag_names: List[str]) -> List[int]:
+        """将自然语言标签映射为 Steam Tag ID。"""
+        tag_ids = []
+        for name in tag_names:
+            if name in STEAM_TAG_MAP:
+                tag_ids.append(STEAM_TAG_MAP[name])
+        return tag_ids
+
+    async def _advanced_steam_search(self, query: str, tag_ids: List[int], sort_by_reviews: bool) -> List[Dict[str, Any]]:
+        """
+        使用 Steam 商店搜索接口进行高级搜索并解析结果。
+        """
+        search_url = "https://store.steampowered.com/search/results"
+        params = {
+            "term": query,
+            "l": "schinese",
+            "cc": "cn",
+            "infinite": 1,
+            "supportedlang": "schinese",
+        }
+
+        if tag_ids:
+            params["tags"] = ",".join(map(str, tag_ids))
+
+        if sort_by_reviews:
+            params["sort_by"] = "Reviews_DESC"
+
+        try:
+            async with self.session.get(search_url, params=params, timeout=15) as response:
+                if response.status != 200:
+                    logger.warning(f"Steam Advanced Search API 请求失败，状态码: {response.status}")
+                    return []
+
+                data = await response.json()
+                results_html = data.get("results_html")
+                if not results_html:
+                    return []
+
+                return self._parse_search_results(results_html)
 
         except Exception as e:
-            logger.error(f"Error during plugin termination: {e}")
+            logger.error(f"Steam Advanced Search API 请求异常: {e}")
+            return []
 
-        DailyFortunePlugin._initialized = False
-        DailyFortunePlugin._instance = None
-        logger.info("今日人品插件已卸载")
+    def _parse_search_results(self, html_content: str) -> List[Dict[str, Any]]:
+        """使用 BeautifulSoup 解析搜索结果的 HTML 片段。"""
+        soup = BeautifulSoup(html_content, "html.parser")
+        results = []
+        rows = soup.find_all("a", class_="search_result_row")
+
+        count = 0
+        for row in rows:
+            if count >= self.max_results:
+                break
+
+            try:
+                app_id = row.get("data-ds-appid")
+                link = row.get("href")
+
+                title_span = row.find("span", class_="title")
+                title = title_span.text if title_span else "未知名称"
+
+                img_tag = row.find("img")
+                cover_url = img_tag['src'] if img_tag else None
+
+                review_summary = row.find("span", class_=re.compile("search_review_summary"))
+                review_text = "N/A"
+                if review_summary and 'data-tooltip-html' in review_summary.attrs:
+                     tooltip = review_summary['data-tooltip-html'].replace("<br>", " (") + ")"
+                     review_text = tooltip
+
+                results.append({
+                    "app_id": app_id,
+                    "title": title,
+                    "link": link,
+                    "cover_url": cover_url,
+                    "review": review_text
+                })
+                count += 1
+            except Exception as e:
+                logger.warning(f"解析单个 Steam 搜索结果失败: {e}")
+                continue
+
+        return results
+
+    @filter.llm_tool(name="search_steam_games_filtered")
+    async def search_steam_games_filtered(self, event: AstrMessageEvent, query: str, genres_or_tags: List[str], require_high_reviews: bool) -> MessageEventResult:
+        '''
+        根据查询词、类型/标签和好评要求，在Steam上筛选游戏列表。
+        用于当用户想查找特定类型且评价好的游戏时，例如“推荐几个好评的RPG游戏”。
+
+        Args:
+            query(string): 游戏的搜索关键词，可以是游戏名片段或空字符串（如果只按类型搜索）。
+            genres_or_tags(array): 用户要求的游戏类型或标签列表（例如：["RPG", "开放世界"]）。
+            require_high_reviews(boolean): 是否要求游戏必须是好评（高评分）的。
+        '''
+        logger.info(f"[Steam Plugin] LLM 触发高级筛选查询. Query: '{query}', Tags: {genres_or_tags}, High Reviews: {require_high_reviews}")
+
+        # 1. 映射标签
+        tag_ids = self._map_tags(genres_or_tags)
+
+        if not query and not tag_ids:
+             yield event.plain_result("请提供更具体的搜索条件，例如游戏名称或类型（如RPG、策略等）。")
+             return
+
+        # 2. 执行高级搜索
+        results = await self._advanced_steam_search(query, tag_ids, sort_by_reviews=require_high_reviews)
+
+        if not results:
+            yield event.plain_result(f"抱歉，没有找到符合条件（关键词:'{query}', 类型:{genres_or_tags}）的Steam游戏。")
+            return
+
+        # 3. 构建回复消息链
+        message_chain = [
+            Comp.Plain(f"为您找到前 {len(results)} 个符合条件的Steam游戏：\n\n")
+        ]
+
+        for i, game in enumerate(results):
+            # 添加游戏信息文本
+            text_part = (
+                f"#{i+1} 【{game['title']}】\n"
+                f"评价: {game['review']}\n"
+                f"链接: {game['link']}\n"
+            )
+            message_chain.append(Comp.Plain(text_part))
+
+            # 添加封面图
+            if game['cover_url']:
+                # 尝试替换 CDN URL
+                cover_url = game['cover_url'].replace("https://cdn.akamai.steamstatic.com", "https://cdn.steamstatic.com.8686c.com")
+                message_chain.append(Comp.Image.fromURL(cover_url))
+
+            # !!! 修复此处的 SyntaxError !!!
+            message_chain.append(Comp.Plain("\n" + "=" * 20 + "\n")) # 分隔符
+
+        yield event.chain_result(message_chain)
