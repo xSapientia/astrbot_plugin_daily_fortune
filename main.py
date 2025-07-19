@@ -12,7 +12,7 @@ import aiofiles
     "astrbot_plugin_daily_fortune",
     "xSapientia",
     "今日人品测试插件 - 测试你的今日运势",
-    "1.1.2",
+    "0.1.1",
     "https://github.com/xSapientia/astrbot_plugin_daily_fortune",
 )
 class DailyFortunePlugin(Star):
@@ -53,7 +53,7 @@ class DailyFortunePlugin(Star):
             (100, 100): "万事皆允"
         }
 
-        logger.info("今日人品插件 v1.1.2 加载成功！")
+        logger.info("今日人品插件 v0.1.1 加载成功！")
 
     async def load_data(self, file_path: str) -> dict:
         """异步加载JSON数据"""
@@ -93,42 +93,6 @@ class DailyFortunePlugin(Star):
             name = f"用户{event.get_sender_id()[-4:]}"
         return name
 
-    def build_forward_message(self, event: AstrMessageEvent, messages: List[str], user_name: str):
-        """构建合并转发消息"""
-        if event.get_platform_name() == "aiocqhttp" and self.config.get("use_forward_message", False):
-            try:
-                from astrbot.api.message_components import Node, Plain
-
-                nodes = []
-                for msg in messages:
-                    node = Node(
-                        uin=event.get_self_id(),
-                        name="占卜师",
-                        content=[Plain(msg)]
-                    )
-                    nodes.append(node)
-
-                # 创建消息结果并标记为不可分段
-                result = event.chain_result(nodes)
-                # 设置特殊标记，避免被分段回复功能分割
-                if hasattr(result, 'metadata'):
-                    result.metadata['no_segment'] = True
-                elif hasattr(result, '_metadata'):
-                    result._metadata = {'no_segment': True}
-
-                # 尝试通过事件设置不分段标记
-                event.set_extra('no_segment', True)
-                event.set_extra('is_forward_message', True)
-
-                return result
-            except Exception as e:
-                logger.error(f"构建合并转发失败: {e}")
-                # 失败时使用普通方式发送
-                return event.plain_result("\n\n".join(messages))
-        else:
-            # 非aiocqhttp平台或未启用合并转发
-            return event.plain_result("\n\n".join(messages))
-
     @filter.command("jrrp", alias={"-jrrp", "今日人品"})
     async def daily_fortune(self, event: AstrMessageEvent):
         """查看今日人品"""
@@ -152,13 +116,21 @@ class DailyFortunePlugin(Star):
             fortune_value = fortunes[today_key][user_id]["value"]
             level = self.get_fortune_level(fortune_value)
 
-            messages = [
-                f"【{user_name}】今日人品已测试",
-                f"💎 人品值：{fortune_value}\n🔮 运势：{level}",
-                "✨ 记住，人品值只是参考，真正的运气掌握在自己手中！"
-            ]
-
-            yield self.build_forward_message(event, messages, user_name)
+            if self.config.get("use_forward_message", False) and event.get_platform_name() == "aiocqhttp":
+                # 使用合并转发
+                messages = [
+                    f"【{user_name}】今日人品已测试",
+                    f"💎 人品值：{fortune_value}\n🔮 运势：{level}",
+                    "✨ 记住，人品值只是参考，真正的运气掌握在自己手中！"
+                ]
+                yield self._build_forward_message(event, messages, user_name)
+            else:
+                # 普通消息
+                result = f"【{user_name}】今日人品已测试\n"
+                result += f"💎 人品值：{fortune_value}\n"
+                result += f"🔮 运势：{level}\n"
+                result += f"✨ 记住，人品值只是参考，真正的运气掌握在自己手中！"
+                yield event.plain_result(result)
             return
 
         # 生成新的人品值
@@ -185,7 +157,16 @@ class DailyFortunePlugin(Star):
         }
         await self.save_data(self.history_file, history)
 
-        # 构建消息列表
+        # 构建回复
+        if self.config.get("use_forward_message", False) and event.get_platform_name() == "aiocqhttp":
+            messages = await self._build_fortune_messages(user_name, fortune_value, level)
+            yield self._build_forward_message(event, messages, user_name)
+        else:
+            result = await self._build_fortune_text(user_name, fortune_value, level)
+            yield event.plain_result(result)
+
+    async def _build_fortune_messages(self, user_name: str, fortune_value: int, level: str) -> List[str]:
+        """构建占卜消息列表"""
         messages = [f"【{user_name}】开始测试今日人品..."]
 
         # 如果启用LLM，生成占卜过程描述
@@ -217,7 +198,7 @@ class DailyFortunePlugin(Star):
                     contexts=[],
                     system_prompt="你是一个幽默的占卜师，请用50字以内给出建议或吐槽。"
                 )
-                advice = advice_resp.completion_text if advice_resp.completion_text else ""
+                advice = advice_resp.completion_text if advice_resp.completion_text else self._get_default_advice(fortune_value, level)
             except Exception as e:
                 logger.error(f"LLM调用失败: {e}")
                 messages.append("🔮 水晶球中浮现出神秘的光芒...")
@@ -232,7 +213,32 @@ class DailyFortunePlugin(Star):
             result += f"\n💬 建议：{advice}"
         messages.append(result)
 
-        yield self.build_forward_message(event, messages, user_name)
+        return messages
+
+    async def _build_fortune_text(self, user_name: str, fortune_value: int, level: str) -> str:
+        """构建占卜文本"""
+        messages = await self._build_fortune_messages(user_name, fortune_value, level)
+        return "\n\n".join(messages)
+
+    def _build_forward_message(self, event: AstrMessageEvent, messages: List[str], user_name: str):
+        """构建合并转发消息"""
+        try:
+            from astrbot.api.message_components import Node, Plain
+
+            nodes = []
+            for msg in messages:
+                node = Node(
+                    uin=event.get_self_id(),
+                    name="占卜师",
+                    content=[Plain(msg)]
+                )
+                nodes.append(node)
+
+            return event.chain_result(nodes)
+        except Exception as e:
+            logger.error(f"构建合并转发失败: {e}")
+            # 失败时使用普通方式发送
+            return event.plain_result("\n\n".join(messages))
 
     def _get_default_advice(self, fortune: int, level: str) -> str:
         """获取默认建议"""
@@ -274,24 +280,41 @@ class DailyFortunePlugin(Star):
             reverse=True
         )
 
-        # 构建消息列表
-        messages = [f"📊【今日人品排行榜】{today_key}"]
+        # 构建排行榜
+        if self.config.get("use_forward_message", False) and event.get_platform_name() == "aiocqhttp":
+            messages = [f"📊【今日人品排行榜】{today_key}"]
 
-        medals = ["🥇", "🥈", "🥉"]
-        rank_lines = []
-        for idx, (user_id, data) in enumerate(sorted_fortunes[:10]):
-            medal = medals[idx] if idx < 3 else f"{idx+1}."
-            name = data["name"]
-            value = data["value"]
-            level = self.get_fortune_level(value)
-            rank_lines.append(f"{medal} {name}: {value} ({level})")
+            medals = ["🥇", "🥈", "🥉"]
+            rank_lines = []
+            for idx, (user_id, data) in enumerate(sorted_fortunes[:10]):
+                medal = medals[idx] if idx < 3 else f"{idx+1}."
+                name = data["name"]
+                value = data["value"]
+                level = self.get_fortune_level(value)
+                rank_lines.append(f"{medal} {name}: {value} ({level})")
 
-        messages.append("\n".join(rank_lines))
+            messages.append("\n".join(rank_lines))
 
-        if len(sorted_fortunes) > 10:
-            messages.append(f"...共 {len(sorted_fortunes)} 人已测试")
+            if len(sorted_fortunes) > 10:
+                messages.append(f"...共 {len(sorted_fortunes)} 人已测试")
 
-        yield self.build_forward_message(event, messages, "排行榜")
+            yield self._build_forward_message(event, messages, "排行榜")
+        else:
+            result = f"📊【今日人品排行榜】{today_key}\n"
+            result += "━━━━━━━━━━━━━━━\n"
+
+            medals = ["🥇", "🥈", "🥉"]
+            for idx, (user_id, data) in enumerate(sorted_fortunes[:10]):
+                medal = medals[idx] if idx < 3 else f"{idx+1}."
+                name = data["name"]
+                value = data["value"]
+                level = self.get_fortune_level(value)
+                result += f"{medal} {name}: {value} ({level})\n"
+
+            if len(sorted_fortunes) > 10:
+                result += f"\n...共 {len(sorted_fortunes)} 人已测试"
+
+            yield event.plain_result(result)
 
     @filter.command("jrrphistory", alias={"jrrphi", "人品历史"})
     async def fortune_history(self, event: AstrMessageEvent):
@@ -317,26 +340,42 @@ class DailyFortunePlugin(Star):
         max_fortune = max(all_values)
         min_fortune = min(all_values)
 
-        # 构建消息列表
-        messages = [f"📈【{user_name}的人品历史】"]
+        if self.config.get("use_forward_message", False) and event.get_platform_name() == "aiocqhttp":
+            messages = [f"📈【{user_name}的人品历史】"]
 
-        history_lines = []
-        for date_key, data in sorted_history:
-            value = data["value"]
-            level = self.get_fortune_level(value)
-            history_lines.append(f"📅 {date_key}: {value} ({level})")
+            history_lines = []
+            for date_key, data in sorted_history:
+                value = data["value"]
+                level = self.get_fortune_level(value)
+                history_lines.append(f"📅 {date_key}: {value} ({level})")
 
-        messages.append("\n".join(history_lines))
+            messages.append("\n".join(history_lines))
 
-        stats = f"""📊 统计信息：
+            stats = f"""📊 统计信息：
 平均人品：{avg_fortune:.1f}
 最高人品：{max_fortune}
 最低人品：{min_fortune}
 测试次数：{len(all_values)}"""
 
-        messages.append(stats)
+            messages.append(stats)
 
-        yield self.build_forward_message(event, messages, user_name)
+            yield self._build_forward_message(event, messages, user_name)
+        else:
+            result = f"📈【{user_name}的人品历史】\n"
+            result += "━━━━━━━━━━━━━━━\n"
+
+            for date_key, data in sorted_history:
+                value = data["value"]
+                level = self.get_fortune_level(value)
+                result += f"📅 {date_key}: {value} ({level})\n"
+
+            result += "\n📊 统计信息：\n"
+            result += f"平均人品：{avg_fortune:.1f}\n"
+            result += f"最高人品：{max_fortune}\n"
+            result += f"最低人品：{min_fortune}\n"
+            result += f"测试次数：{len(all_values)}"
+
+            yield event.plain_result(result)
 
     async def terminate(self):
         """插件卸载时调用"""
