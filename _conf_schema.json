@@ -5,17 +5,23 @@
     "default": true,
     "hint": "关闭后所有功能将停用"
   },
+  "use_forward_message": {
+    "description": "使用合并转发消息",
+    "type": "bool",
+    "default": false,
+    "hint": "启用后将使用合并转发形式发送消息（仅支持QQ平台）"
+  },
+  "min_fortune": {
+    "description": "人品值下限",
+    "type": "int",
+    "default": 0,
+    "hint": "人品值的最小值，默认为0"
+  },
   "max_fortune": {
     "description": "人品值上限",
     "type": "int",
     "default": 100,
     "hint": "人品值的最大值，默认为100"
-  },
-   "min_fortune": {
-    "description": "人品值下限",
-    "type": "int",
-    "default": 0,
-    "hint": "人品值的最小值，默认为0"
   },
   "use_llm": {
     "description": "使用LLM生成占卜过程",
