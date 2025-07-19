@@ -20,7 +20,7 @@ _plugin_loaded = False
     "astrbot_plugin_daily_fortune",
     "xSapientia",
     "今日人品测试插件 - 测试你的今日运势",
-    "0.1.1",
+    "0.1.2",  # 版本更新
     "https://github.com/xSapientia/astrbot_plugin_daily_fortune",
 )
 class DailyFortunePlugin(Star):
@@ -75,7 +75,7 @@ class DailyFortunePlugin(Star):
         self._cache_timeout = 5  # 5秒内相同请求视为重复
 
         DailyFortunePlugin._initialized = True
-        logger.info("今日人品插件 v0.1.1 加载成功！")
+        logger.info("今日人品插件 v0.1.2 加载成功！")
 
     async def load_data(self, file_path: str) -> dict:
         """异步加载JSON数据"""
@@ -137,7 +137,8 @@ class DailyFortunePlugin(Star):
 
         return False
 
-    @filter.command("jrrp", alias={"-jrrp", "今日人品"})
+    # 将 jrrp 改为指令组，并作为默认处理器
+    @filter.command_group("jrrp", alias={"今日人品"})
     async def daily_fortune(self, event: AstrMessageEvent):
         """查看今日人品"""
         async with _fortune_lock:  # 使用全局锁防止并发
@@ -147,9 +148,6 @@ class DailyFortunePlugin(Star):
                 if self._check_duplicate_request(user_id, "jrrp"):
                     logger.info(f"Ignored duplicate jrrp request from {user_id}")
                     return
-
-                # 添加调试日志
-                logger.debug(f"[daily_fortune] Processing request from {user_id}, thread: {threading.current_thread().name}")
 
                 # 检查插件是否启用
                 if not self.config.get("enable_plugin", True):
@@ -278,7 +276,8 @@ class DailyFortunePlugin(Star):
         }
         return advice_map.get(level, "保持平常心，做好自己。")
 
-    @filter.command("jrrp rank", alias={"人品排行", "jrrp排行"})
+    # 改为 jrrp 指令组的子命令
+    @daily_fortune.command("rank", alias={"排行"})
     async def fortune_rank(self, event: AstrMessageEvent):
         """查看群聊内今日人品排行"""
         async with _fortune_lock:
@@ -335,7 +334,8 @@ class DailyFortunePlugin(Star):
                 logger.error(f"处理人品排行指令时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，获取排行榜时出现了错误。")
 
-    @filter.command("jrrp history", alias={"jrrp hi", "人品历史"})
+    # 改为 jrrp 指令组的子命令
+    @daily_fortune.command("history", alias={"hi", "历史"})
     async def fortune_history(self, event: AstrMessageEvent):
         """查看个人人品历史"""
         async with _fortune_lock:
@@ -385,7 +385,8 @@ class DailyFortunePlugin(Star):
                 logger.error(f"处理人品历史指令时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，获取历史记录时出现了错误。")
 
-    @filter.command("jrrp reset", alias={"人品数据库清除"})
+    # 改为 jrrp 指令组的子命令
+    @daily_fortune.command("reset", alias={"重置数据库"})
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def reset_all_fortune(self, event: AstrMessageEvent):
         """清除所有数据（仅管理员）"""
@@ -429,7 +430,8 @@ class DailyFortunePlugin(Star):
                 logger.error(f"清除所有数据时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，清除数据时出现了错误。")
 
-    @filter.command("jrrp delete", alias={"jrrp delete","人品数据库清除"})
+    # 改为 jrrp 指令组的子命令
+    @daily_fortune.command("del", alias={"delete", "删除"})
     async def delete_user_fortune(self, event: AstrMessageEvent):
         """清除使用人的数据"""
         async with _fortune_lock:
