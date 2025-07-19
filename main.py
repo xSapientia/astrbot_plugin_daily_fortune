@@ -135,7 +135,7 @@ class DailyFortunePlugin(Star):
 
         return False
 
-    @filter.command("jrrp", alias={"今日人品"})
+    @filter.command("jrrp")
     async def jrrp_command(self, event: AstrMessageEvent, *args):
         """统一的jrrp命令处理器"""
         async with _fortune_lock:
