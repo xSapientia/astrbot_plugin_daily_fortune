@@ -12,7 +12,7 @@ import aiofiles
     "astrbot_plugin_daily_fortune",
     "xSapientia",
     "今日人品测试插件 - 测试你的今日运势",
-    "1.1.0",
+    "1.1.1",
     "https://github.com/xSapientia/astrbot_plugin_daily_fortune",
 )
 class DailyFortunePlugin(Star):
@@ -53,7 +53,7 @@ class DailyFortunePlugin(Star):
             (100, 100): "万事皆允"
         }
 
-        logger.info("今日人品插件 v1.1.0 加载成功！")
+        logger.info("今日人品插件 v1.1.1 加载成功！")
 
     async def load_data(self, file_path: str) -> dict:
         """异步加载JSON数据"""
@@ -93,8 +93,8 @@ class DailyFortunePlugin(Star):
             name = f"用户{event.get_sender_id()[-4:]}"
         return name
 
-    async def send_with_forward(self, event: AstrMessageEvent, messages: List[str], user_name: str):
-        """使用合并转发发送消息"""
+    def build_forward_message(self, event: AstrMessageEvent, messages: List[str], user_name: str):
+        """构建合并转发消息"""
         if event.get_platform_name() == "aiocqhttp" and self.config.get("use_forward_message", False):
             try:
                 from astrbot.api.message_components import Node, Plain
@@ -108,14 +108,14 @@ class DailyFortunePlugin(Star):
                     )
                     nodes.append(node)
 
-                yield event.chain_result(nodes)
+                return event.chain_result(nodes)
             except Exception as e:
-                logger.error(f"合并转发失败: {e}")
+                logger.error(f"构建合并转发失败: {e}")
                 # 失败时使用普通方式发送
-                yield event.plain_result("\n\n".join(messages))
+                return event.plain_result("\n\n".join(messages))
         else:
             # 非aiocqhttp平台或未启用合并转发
-            yield event.plain_result("\n\n".join(messages))
+            return event.plain_result("\n\n".join(messages))
 
     @filter.command("jrrp", alias={"-jrrp", "今日人品"})
     async def daily_fortune(self, event: AstrMessageEvent):
@@ -146,7 +146,7 @@ class DailyFortunePlugin(Star):
                 "✨ 记住，人品值只是参考，真正的运气掌握在自己手中！"
             ]
 
-            await self.send_with_forward(event, messages, user_name)
+            yield self.build_forward_message(event, messages, user_name)
             return
 
         # 生成新的人品值
@@ -220,7 +220,7 @@ class DailyFortunePlugin(Star):
             result += f"\n💬 建议：{advice}"
         messages.append(result)
 
-        await self.send_with_forward(event, messages, user_name)
+        yield self.build_forward_message(event, messages, user_name)
 
     def _get_default_advice(self, fortune: int, level: str) -> str:
         """获取默认建议"""
@@ -279,7 +279,7 @@ class DailyFortunePlugin(Star):
         if len(sorted_fortunes) > 10:
             messages.append(f"...共 {len(sorted_fortunes)} 人已测试")
 
-        await self.send_with_forward(event, messages, "排行榜")
+        yield self.build_forward_message(event, messages, "排行榜")
 
     @filter.command("jrrphistory", alias={"jrrphi", "人品历史"})
     async def fortune_history(self, event: AstrMessageEvent):
@@ -324,7 +324,7 @@ class DailyFortunePlugin(Star):
 
         messages.append(stats)
 
-        await self.send_with_forward(event, messages, user_name)
+        yield self.build_forward_message(event, messages, user_name)
 
     async def terminate(self):
         """插件卸载时调用"""
