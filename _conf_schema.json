@@ -8,7 +8,7 @@
   "use_forward_message": {
     "description": "使用合并转发消息",
     "type": "bool",
-    "default": false,
+    "default": true,
     "hint": "启用后将使用合并转发形式发送消息（仅支持QQ平台）"
   },
    "forward_style": {
