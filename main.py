@@ -135,13 +135,7 @@ class DailyFortunePlugin(Star):
 
         return False
 
-    # 使用指令组来避免前缀匹配问题
-    @filter.command_group("jrrp")
-    def jrrp_group(self):
-        """今日人品指令组"""
-        pass
-
-    @jrrp_group.command("", priority=10)  # 空子命令，即直接输入jrrp
+    @filter.command("jrrp", alias={"今日人品"}, priority=10)
     async def daily_fortune(self, event: AstrMessageEvent):
         """查看今日人品"""
         async with _fortune_lock:
@@ -279,7 +273,7 @@ class DailyFortunePlugin(Star):
         }
         return advice_map.get(level, "保持平常心，做好自己。")
 
-    @jrrp_group.command("rank", alias={"排行", "ranking"})
+    @filter.command("jrrp rank", alias={"人品排行", "jrrp排行"})
     async def fortune_rank(self, event: AstrMessageEvent):
         """查看群聊内今日人品排行"""
         async with _fortune_lock:
@@ -334,7 +328,7 @@ class DailyFortunePlugin(Star):
                 logger.error(f"处理人品排行指令时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，获取排行榜时出现了错误。")
 
-    @jrrp_group.command("history", alias={"hi", "历史"})
+    @filter.command("jrrp history", alias={"jrrp hi", "人品历史"})
     async def fortune_history(self, event: AstrMessageEvent):
         """查看个人人品历史"""
         async with _fortune_lock:
@@ -384,7 +378,7 @@ class DailyFortunePlugin(Star):
                 logger.error(f"处理人品历史指令时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，获取历史记录时出现了错误。")
 
-    @jrrp_group.command("reset")
+    @filter.command("jrrp reset")
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def reset_all_fortune(self, event: AstrMessageEvent, confirm: str = ""):
         """清除所有数据（仅管理员）"""
@@ -415,7 +409,7 @@ class DailyFortunePlugin(Star):
                 logger.error(f"清除所有数据时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，清除数据时出现了错误。")
 
-    @jrrp_group.command("delete", alias={"del", "删除"})
+    @filter.command("jrrp delete", alias={"jrrp del", "人品删除"})
     async def delete_user_fortune(self, event: AstrMessageEvent):
         """清除使用人的数据"""
         async with _fortune_lock:
