@@ -13,7 +13,7 @@ from astrbot.api import logger, AstrBotConfig
     "astrbot_plugin_req_jrrp",
     "xSapientia",
     "今日人品查询插件",
-    "1.0.0",
+    "0.0.3",
     "https://github.com/xSapientia/astrbot_plugin_req_jrrp",
 )
 class JRRPPlugin(Star):
