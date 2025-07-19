@@ -278,14 +278,14 @@ class DailyFortunePlugin(Star):
         }
         return advice_map.get(level, "保持平常心，做好自己。")
 
-    @filter.command("jrrprank", alias={"人品排行", "jrrp排行"})
+    @filter.command("jrrp rank", alias={"人品排行", "jrrp排行"})
     async def fortune_rank(self, event: AstrMessageEvent):
         """查看群聊内今日人品排行"""
         async with _fortune_lock:
             try:
                 # 检查是否是重复请求
                 user_id = event.get_sender_id()
-                if self._check_duplicate_request(user_id, "jrrprank"):
+                if self._check_duplicate_request(user_id, "jrrp rank"):
                     return
 
                 if not self.config.get("enable_plugin", True):
@@ -335,14 +335,14 @@ class DailyFortunePlugin(Star):
                 logger.error(f"处理人品排行指令时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，获取排行榜时出现了错误。")
 
-    @filter.command("jrrphistory", alias={"jrrphi", "人品历史"})
+    @filter.command("jrrp history", alias={"jrrp hi", "人品历史"})
     async def fortune_history(self, event: AstrMessageEvent):
         """查看个人人品历史"""
         async with _fortune_lock:
             try:
                 # 检查是否是重复请求
                 user_id = event.get_sender_id()
-                if self._check_duplicate_request(user_id, "jrrphistory"):
+                if self._check_duplicate_request(user_id, "jrrp history"):
                     return
 
                 if not self.config.get("enable_plugin", True):
@@ -385,7 +385,7 @@ class DailyFortunePlugin(Star):
                 logger.error(f"处理人品历史指令时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，获取历史记录时出现了错误。")
 
-    @filter.command("jrrpreset")
+    @filter.command("jrrp reset", alias={"人品数据库清除"})
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def reset_all_fortune(self, event: AstrMessageEvent):
         """清除所有数据（仅管理员）"""
@@ -429,7 +429,7 @@ class DailyFortunePlugin(Star):
                 logger.error(f"清除所有数据时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，清除数据时出现了错误。")
 
-    @filter.command("jrrpdel")
+    @filter.command("jrrp delete", alias={"jrrp delete","人品数据库清除"})
     async def delete_user_fortune(self, event: AstrMessageEvent):
         """清除使用人的数据"""
         async with _fortune_lock:
