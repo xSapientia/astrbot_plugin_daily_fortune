@@ -33,6 +33,7 @@ class DailyFortunePlugin(Star):
         self.data_dir = os.path.join("data", "daily_fortune")
         self.fortune_file = os.path.join(self.data_dir, "fortunes.json")
         self.history_file = os.path.join(self.data_dir, "history.json")
+        self.group_records_file = os.path.join(self.data_dir, "group_records.json")
 
         # 确保数据目录存在
         os.makedirs(self.data_dir, exist_ok=True)
@@ -102,21 +103,27 @@ class DailyFortunePlugin(Star):
             user_name = await self.get_user_name(event)
             today_key = self.get_today_key()
 
-            # 加载今日人品数据
+            # 加载今日人品数据（全局数据）
             fortunes = await self.load_data(self.fortune_file)
 
-            # 检查用户今日是否已经测试过
+            # 确保数据结构存在
             if today_key not in fortunes:
                 fortunes[today_key] = {}
 
+            # 检查用户今日是否已经测试过（全局检查）
             if user_id in fortunes[today_key]:
                 # 已经测试过，直接返回结果
-                fortune_value = fortunes[today_key][user_id]["value"]
+                fortune_data = fortunes[today_key][user_id]
+                fortune_value = fortune_data["value"]
                 level = self.get_fortune_level(fortune_value)
 
                 result = f"📌 {user_name} 今天已经查询过了哦~\n"
                 result += f"今日人品值: {fortune_value}\n"
                 result += f"运势: {level} 😊"
+
+                # 记录到群组（如果是群聊）
+                if not event.is_private_chat():
+                    await self._record_to_group(event.get_group_id(), user_id, user_name, fortune_value)
 
                 yield event.plain_result(result)
                 return
@@ -127,13 +134,17 @@ class DailyFortunePlugin(Star):
             fortune_value = random.randint(min_val, max_val)
             level = self.get_fortune_level(fortune_value)
 
-            # 保存今日人品
+            # 保存今日人品（全局保存）
             fortunes[today_key][user_id] = {
                 "value": fortune_value,
                 "name": user_name,
                 "time": datetime.now().strftime("%H:%M:%S")
             }
             await self.save_data(self.fortune_file, fortunes)
+
+            # 记录到群组（如果是群聊）
+            if not event.is_private_chat():
+                await self._record_to_group(event.get_group_id(), user_id, user_name, fortune_value)
 
             # 保存到历史记录
             history = await self.load_data(self.history_file)
@@ -203,6 +214,24 @@ class DailyFortunePlugin(Star):
             logger.error(f"处理今日人品指令时出错: {e}")
             yield event.plain_result("抱歉，处理您的请求时出现了错误。")
 
+    async def _record_to_group(self, group_id: str, user_id: str, user_name: str, fortune_value: int):
+        """记录用户在群组中测试过人品"""
+        today_key = self.get_today_key()
+        group_records = await self.load_data(self.group_records_file)
+
+        if today_key not in group_records:
+            group_records[today_key] = {}
+        if group_id not in group_records[today_key]:
+            group_records[today_key][group_id] = {}
+
+        group_records[today_key][group_id][user_id] = {
+            "name": user_name,
+            "value": fortune_value,
+            "time": datetime.now().strftime("%H:%M:%S")
+        }
+
+        await self.save_data(self.group_records_file, group_records)
+
     def _get_default_advice(self, fortune: int, level: str) -> str:
         """获取默认建议"""
         advice_map = {
@@ -230,16 +259,22 @@ class DailyFortunePlugin(Star):
                 return
 
             today_key = self.get_today_key()
-            fortunes = await self.load_data(self.fortune_file)
+            group_id = event.get_group_id()
 
-            if today_key not in fortunes or not fortunes[today_key]:
-                yield event.plain_result("今天还没有人测试人品哦~")
+            # 加载群组记录
+            group_records = await self.load_data(self.group_records_file)
+
+            # 检查是否有数据
+            if (today_key not in group_records or
+                group_id not in group_records[today_key] or
+                not group_records[today_key][group_id]):
+                yield event.plain_result("📊 今天本群还没有人查询人品哦~")
                 return
 
             # 获取并排序今日人品
-            today_fortunes = fortunes[today_key]
+            group_fortunes = group_records[today_key][group_id]
             sorted_fortunes = sorted(
-                today_fortunes.items(),
+                group_fortunes.items(),
                 key=lambda x: x[1]["value"],
                 reverse=True
             )
