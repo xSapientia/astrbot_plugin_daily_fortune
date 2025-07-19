@@ -10,10 +10,10 @@ from astrbot.api.star import Star, register, Context
 from astrbot.api import logger, AstrBotConfig
 
 @register(
-    name="astrbot_plugin_jrrp",
+    name="astrbot_plugin_reqjrrp",
     author="xSapientia",
     desc="今日人品查询插件 - 支持群排行/LLM增强",
-    version="2.0.0"
+    version="0.0.4"
 )
 class JRRPPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
