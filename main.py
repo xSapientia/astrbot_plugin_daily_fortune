@@ -135,7 +135,7 @@ class DailyFortunePlugin(Star):
 
         return False
 
-    @filter.command("jrrp", alias={"今日人品"}, priority=10)
+    @filter.command("jrrp", priority=10)
     async def daily_fortune(self, event: AstrMessageEvent):
         """查看今日人品"""
         async with _fortune_lock:
@@ -273,7 +273,7 @@ class DailyFortunePlugin(Star):
         }
         return advice_map.get(level, "保持平常心，做好自己。")
 
-    @filter.command("jrrp rank", alias={"人品排行", "jrrp排行"})
+    @filter.command("jrrp rank")
     async def fortune_rank(self, event: AstrMessageEvent):
         """查看群聊内今日人品排行"""
         async with _fortune_lock:
@@ -328,7 +328,7 @@ class DailyFortunePlugin(Star):
                 logger.error(f"处理人品排行指令时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，获取排行榜时出现了错误。")
 
-    @filter.command("jrrp history", alias={"jrrp hi", "人品历史"})
+    @filter.command("jrrp history", alias={"jrrp hi"})
     async def fortune_history(self, event: AstrMessageEvent):
         """查看个人人品历史"""
         async with _fortune_lock:
@@ -409,7 +409,7 @@ class DailyFortunePlugin(Star):
                 logger.error(f"清除所有数据时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，清除数据时出现了错误。")
 
-    @filter.command("jrrp delete", alias={"jrrp del", "人品删除"})
+    @filter.command("jrrp delete", alias={"jrrp del"})
     async def delete_user_fortune(self, event: AstrMessageEvent):
         """清除使用人的数据"""
         async with _fortune_lock:
