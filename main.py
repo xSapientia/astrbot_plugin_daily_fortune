@@ -27,7 +27,7 @@ class JRRPPlugin(Star):
         # 设置默认配置
         self.ensure_config_defaults()
 
-        logger.info("今日人品插件 v2.0.0 加载成功！")
+        logger.info("今日人品插件 v0.0.4 加载成功！")
 
     def ensure_config_defaults(self):
         """确保配置有默认值"""
