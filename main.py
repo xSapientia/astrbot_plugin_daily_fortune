@@ -12,7 +12,7 @@ import aiofiles
     "astrbot_plugin_daily_fortune",
     "xSapientia",
     "今日人品测试插件 - 测试你的今日运势",
-    "1.1.1",
+    "1.1.2",
     "https://github.com/xSapientia/astrbot_plugin_daily_fortune",
 )
 class DailyFortunePlugin(Star):
@@ -53,7 +53,7 @@ class DailyFortunePlugin(Star):
             (100, 100): "万事皆允"
         }
 
-        logger.info("今日人品插件 v1.1.1 加载成功！")
+        logger.info("今日人品插件 v1.1.2 加载成功！")
 
     async def load_data(self, file_path: str) -> dict:
         """异步加载JSON数据"""
@@ -108,7 +108,19 @@ class DailyFortunePlugin(Star):
                     )
                     nodes.append(node)
 
-                return event.chain_result(nodes)
+                # 创建消息结果并标记为不可分段
+                result = event.chain_result(nodes)
+                # 设置特殊标记，避免被分段回复功能分割
+                if hasattr(result, 'metadata'):
+                    result.metadata['no_segment'] = True
+                elif hasattr(result, '_metadata'):
+                    result._metadata = {'no_segment': True}
+
+                # 尝试通过事件设置不分段标记
+                event.set_extra('no_segment', True)
+                event.set_extra('is_forward_message', True)
+
+                return result
             except Exception as e:
                 logger.error(f"构建合并转发失败: {e}")
                 # 失败时使用普通方式发送
