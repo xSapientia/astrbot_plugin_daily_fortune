@@ -4,6 +4,7 @@ from astrbot.api import logger, AstrBotConfig
 import json
 import random
 import os
+import shutil
 from datetime import datetime, date
 from typing import Dict, List, Optional
 import aiofiles
@@ -49,8 +50,8 @@ class DailyFortunePlugin(Star):
         self.config.setdefault("process_prompt", "你是一个神秘的占卜师，正在使用水晶球为用户[{name}]占卜今日人品值。请描述水晶球中浮现的画面和占卜过程，最后揭示今日人品值为{fortune}。描述要神秘且富有画面感，50字以内。")
         self.config.setdefault("advice_prompt", "用户[{name}]的今日人品值为{fortune}，运势等级为{level}。请根据这个人品值给出今日建议或吐槽，要幽默风趣，50字以内。")
 
-        # 数据文件路径
-        self.data_dir = os.path.join("data", "daily_fortune")
+        # 数据文件路径 - 修改为plugin_data目录
+        self.data_dir = os.path.join("data", "plugin_data", "astrbot_plugin_daily_fortune")
         self.fortune_file = os.path.join(self.data_dir, "fortunes.json")
         self.history_file = os.path.join(self.data_dir, "history.json")
 
@@ -384,8 +385,109 @@ class DailyFortunePlugin(Star):
                 logger.error(f"处理人品历史指令时出错: {e}", exc_info=True)
                 yield event.plain_result("抱歉，获取历史记录时出现了错误。")
 
+    @filter.command("jrrpreset")
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    async def reset_all_fortune(self, event: AstrMessageEvent):
+        """清除所有数据（仅管理员）"""
+        async with _fortune_lock:
+            try:
+                if not event.is_admin():
+                    yield event.plain_result("❌ 只有管理员才能使用此命令")
+                    return
+
+                # 确认提示
+                yield event.plain_result("⚠️ 警告：此操作将清除所有人品数据！\n如果确定要继续，请在10秒内回复「确认清除」")
+
+                # 使用会话控制等待确认
+                from astrbot.core.utils.session_waiter import session_waiter, SessionController
+
+                @session_waiter(timeout=10, record_history_chains=False)
+                async def confirm_waiter(controller: SessionController, confirm_event: AstrMessageEvent):
+                    if confirm_event.message_str.strip() == "确认清除":
+                        # 清除所有数据文件
+                        try:
+                            if os.path.exists(self.fortune_file):
+                                os.remove(self.fortune_file)
+                            if os.path.exists(self.history_file):
+                                os.remove(self.history_file)
+
+                            await confirm_event.send(event.plain_result("✅ 所有人品数据已清除"))
+                            logger.info(f"Admin {event.get_sender_id()} reset all fortune data")
+                        except Exception as e:
+                            await confirm_event.send(event.plain_result(f"❌ 清除数据时出错: {str(e)}"))
+                    else:
+                        await confirm_event.send(event.plain_result("❌ 操作已取消"))
+
+                    controller.stop()
+
+                try:
+                    await confirm_waiter(event)
+                except TimeoutError:
+                    yield event.plain_result("⏰ 操作超时，已自动取消")
+
+            except Exception as e:
+                logger.error(f"清除所有数据时出错: {e}", exc_info=True)
+                yield event.plain_result("抱歉，清除数据时出现了错误。")
+
+    @filter.command("jrrpdel")
+    async def delete_user_fortune(self, event: AstrMessageEvent):
+        """清除使用人的数据"""
+        async with _fortune_lock:
+            try:
+                user_id = event.get_sender_id()
+                user_name = await self.get_user_name(event)
+
+                # 清除今日人品数据
+                fortunes = await self.load_data(self.fortune_file)
+                deleted = False
+
+                for date_key in list(fortunes.keys()):
+                    if user_id in fortunes[date_key]:
+                        del fortunes[date_key][user_id]
+                        deleted = True
+                        # 如果这一天没有数据了，删除整个日期键
+                        if not fortunes[date_key]:
+                            del fortunes[date_key]
+
+                if deleted:
+                    await self.save_data(self.fortune_file, fortunes)
+
+                # 清除历史记录
+                history = await self.load_data(self.history_file)
+                history_deleted = False
+
+                if user_id in history:
+                    del history[user_id]
+                    history_deleted = True
+                    await self.save_data(self.history_file, history)
+
+                if deleted or history_deleted:
+                    yield event.plain_result(f"✅ 已清除 {user_name} 的所有人品数据")
+                    logger.info(f"User {user_id} deleted their fortune data")
+                else:
+                    yield event.plain_result(f"ℹ️ {user_name} 没有人品数据记录")
+
+            except Exception as e:
+                logger.error(f"清除用户数据时出错: {e}", exc_info=True)
+                yield event.plain_result("抱歉，清除数据时出现了错误。")
+
     async def terminate(self):
         """插件卸载时调用"""
+        try:
+            # 删除配置文件
+            config_file = os.path.join("data", "config", "astrbot_plugin_daily_fortune_config.json")
+            if os.path.exists(config_file):
+                os.remove(config_file)
+                logger.info(f"Removed config file: {config_file}")
+
+            # 删除数据目录
+            if os.path.exists(self.data_dir):
+                shutil.rmtree(self.data_dir)
+                logger.info(f"Removed data directory: {self.data_dir}")
+
+        except Exception as e:
+            logger.error(f"Error during plugin termination: {e}")
+
         DailyFortunePlugin._initialized = False
         DailyFortunePlugin._instance = None
         logger.info("今日人品插件已卸载")
