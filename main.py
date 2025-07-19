@@ -19,19 +19,15 @@ class DailyFortunePlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig = None):
         super().__init__(context)
         self.context = context
-        self.config = config if config else AstrBotConfig()
+        self.config = config if config else {}
 
         # 设置默认配置
-        if not self.config:
-            self.config = {
-                "enable_plugin": True,
-                "min_fortune": 0,
-                "max_fortune": 100,
-                "use_llm": True,
-                "use_forward_message": False,
-                "process_prompt": "你是一个神秘的占卜师，正在使用水晶球为用户[{name}]占卜今日人品值。请描述水晶球中浮现的画面和占卜过程，最后揭示今日人品值为{fortune}。描述要神秘且富有画面感，50字以内。",
-                "advice_prompt": "用户[{name}]的今日人品值为{fortune}，运势等级为{level}。请根据这个人品值给出今日建议或吐槽，要幽默风趣，50字以内。"
-            }
+        self.config.setdefault("enable_plugin", True)
+        self.config.setdefault("min_fortune", 0)
+        self.config.setdefault("max_fortune", 100)
+        self.config.setdefault("use_llm", True)
+        self.config.setdefault("process_prompt", "你是一个神秘的占卜师，正在使用水晶球为用户[{name}]占卜今日人品值。请描述水晶球中浮现的画面和占卜过程，最后揭示今日人品值为{fortune}。描述要神秘且富有画面感，50字以内。")
+        self.config.setdefault("advice_prompt", "用户[{name}]的今日人品值为{fortune}，运势等级为{level}。请根据这个人品值给出今日建议或吐槽，要幽默风趣，50字以内。")
 
         # 数据文件路径
         self.data_dir = os.path.join("data", "daily_fortune")
@@ -96,111 +92,116 @@ class DailyFortunePlugin(Star):
     @filter.command("jrrp", alias={"-jrrp", "今日人品"})
     async def daily_fortune(self, event: AstrMessageEvent):
         """查看今日人品"""
-        if not self.config.get("enable_plugin", True):
-            yield event.plain_result("今日人品插件已关闭")
-            return
+        try:
+            # 检查插件是否启用
+            if not self.config.get("enable_plugin", True):
+                yield event.plain_result("今日人品插件已关闭")
+                return
 
-        user_id = event.get_sender_id()
-        user_name = await self.get_user_name(event)
-        today_key = self.get_today_key()
+            user_id = event.get_sender_id()
+            user_name = await self.get_user_name(event)
+            today_key = self.get_today_key()
 
-        # 加载今日人品数据
-        fortunes = await self.load_data(self.fortune_file)
+            # 加载今日人品数据
+            fortunes = await self.load_data(self.fortune_file)
 
-        # 检查用户今日是否已经测试过
-        if today_key not in fortunes:
-            fortunes[today_key] = {}
+            # 检查用户今日是否已经测试过
+            if today_key not in fortunes:
+                fortunes[today_key] = {}
 
-        if user_id in fortunes[today_key]:
-            # 已经测试过，直接返回结果
-            fortune_value = fortunes[today_key][user_id]["value"]
+            if user_id in fortunes[today_key]:
+                # 已经测试过，直接返回结果
+                fortune_value = fortunes[today_key][user_id]["value"]
+                level = self.get_fortune_level(fortune_value)
+
+                result = f"📌 {user_name} 今天已经查询过了哦~\n"
+                result += f"今日人品值: {fortune_value}\n"
+                result += f"运势: {level} 😊"
+
+                yield event.plain_result(result)
+                return
+
+            # 生成新的人品值
+            min_val = self.config.get("min_fortune", 0)
+            max_val = self.config.get("max_fortune", 100)
+            fortune_value = random.randint(min_val, max_val)
             level = self.get_fortune_level(fortune_value)
 
-            # 统一格式的消息
-            result = f"📌 {user_name} 今天已经查询过了哦~\n"
-            result += f"今日人品值: {fortune_value}\n"
-            result += f"运势: {level} 😊"
+            # 保存今日人品
+            fortunes[today_key][user_id] = {
+                "value": fortune_value,
+                "name": user_name,
+                "time": datetime.now().strftime("%H:%M:%S")
+            }
+            await self.save_data(self.fortune_file, fortunes)
+
+            # 保存到历史记录
+            history = await self.load_data(self.history_file)
+            if user_id not in history:
+                history[user_id] = {}
+            history[user_id][today_key] = {
+                "value": fortune_value,
+                "name": user_name
+            }
+            await self.save_data(self.history_file, history)
+
+            # 构建基础回复
+            result = f"【{user_name}】开始测试今日人品...\n\n"
+
+            # 如果启用LLM，生成占卜过程描述
+            process_text = ""
+            advice = ""
+
+            if self.config.get("use_llm", True) and self.context.get_using_provider():
+                try:
+                    # 生成占卜过程
+                    process_prompt = self.config.get("process_prompt", "").format(
+                        name=user_name,
+                        fortune=fortune_value
+                    )
+                    process_resp = await self.context.get_using_provider().text_chat(
+                        prompt=process_prompt,
+                        session_id=None,
+                        contexts=[],
+                        system_prompt="你是一个神秘的占卜师，请用50字以内描述占卜过程。"
+                    )
+                    if process_resp and process_resp.completion_text:
+                        process_text = process_resp.completion_text
+
+                    # 生成建议
+                    advice_prompt = self.config.get("advice_prompt", "").format(
+                        name=user_name,
+                        fortune=fortune_value,
+                        level=level
+                    )
+                    advice_resp = await self.context.get_using_provider().text_chat(
+                        prompt=advice_prompt,
+                        session_id=None,
+                        contexts=[],
+                        system_prompt="你是一个幽默的占卜师，请用50字以内给出建议或吐槽。"
+                    )
+                    if advice_resp and advice_resp.completion_text:
+                        advice = advice_resp.completion_text
+                except Exception as e:
+                    logger.error(f"LLM调用失败: {e}")
+
+            # 使用默认文本
+            if not process_text:
+                process_text = "水晶球中浮现出神秘的光芒..."
+            if not advice:
+                advice = self._get_default_advice(fortune_value, level)
+
+            # 组装完整消息
+            result += f"🔮 {process_text}\n\n"
+            result += f"💎 人品值：{fortune_value}\n"
+            result += f"✨ 运势：{level}\n"
+            result += f"💬 建议：{advice}"
 
             yield event.plain_result(result)
-            return
 
-        # 生成新的人品值
-        min_val = self.config.get("min_fortune", 0)
-        max_val = self.config.get("max_fortune", 100)
-        fortune_value = random.randint(min_val, max_val)
-        level = self.get_fortune_level(fortune_value)
-
-        # 保存今日人品
-        fortunes[today_key][user_id] = {
-            "value": fortune_value,
-            "name": user_name,
-            "time": datetime.now().strftime("%H:%M:%S")
-        }
-        await self.save_data(self.fortune_file, fortunes)
-
-        # 保存到历史记录
-        history = await self.load_data(self.history_file)
-        if user_id not in history:
-            history[user_id] = {}
-        history[user_id][today_key] = {
-            "value": fortune_value,
-            "name": user_name
-        }
-        await self.save_data(self.history_file, history)
-
-        # 构建基础回复
-        result = f"【{user_name}】开始测试今日人品...\n\n"
-
-        # 如果启用LLM，生成占卜过程描述
-        process_text = ""
-        advice = ""
-
-        if self.config.get("use_llm", True) and self.context.get_using_provider():
-            try:
-                # 生成占卜过程
-                process_prompt = self.config.get("process_prompt", "").format(
-                    name=user_name,
-                    fortune=fortune_value
-                )
-                process_resp = await self.context.get_using_provider().text_chat(
-                    prompt=process_prompt,
-                    session_id=None,
-                    contexts=[],
-                    system_prompt="你是一个神秘的占卜师，请用50字以内描述占卜过程。"
-                )
-                if process_resp.completion_text:
-                    process_text = process_resp.completion_text
-
-                # 生成建议
-                advice_prompt = self.config.get("advice_prompt", "").format(
-                    name=user_name,
-                    fortune=fortune_value,
-                    level=level
-                )
-                advice_resp = await self.context.get_using_provider().text_chat(
-                    prompt=advice_prompt,
-                    session_id=None,
-                    contexts=[],
-                    system_prompt="你是一个幽默的占卜师，请用50字以内给出建议或吐槽。"
-                )
-                if advice_resp.completion_text:
-                    advice = advice_resp.completion_text
-            except Exception as e:
-                logger.error(f"LLM调用失败: {e}")
-
-        # 使用默认文本
-        if not process_text:
-            process_text = "水晶球中浮现出神秘的光芒..."
-        if not advice:
-            advice = self._get_default_advice(fortune_value, level)
-
-        # 组装完整消息
-        result += f"🔮 {process_text}\n\n"
-        result += f"💎 人品值：{fortune_value}\n"
-        result += f"✨ 运势：{level}\n"
-        result += f"💬 建议：{advice}"
-
-        yield event.plain_result(result)
+        except Exception as e:
+            logger.error(f"处理今日人品指令时出错: {e}")
+            yield event.plain_result("抱歉，处理您的请求时出现了错误。")
 
     def _get_default_advice(self, fortune: int, level: str) -> str:
         """获取默认建议"""
@@ -219,85 +220,95 @@ class DailyFortunePlugin(Star):
     @filter.command("jrrprank", alias={"人品排行", "jrrp排行"})
     async def fortune_rank(self, event: AstrMessageEvent):
         """查看群聊内今日人品排行"""
-        if not self.config.get("enable_plugin", True):
-            yield event.plain_result("今日人品插件已关闭")
-            return
+        try:
+            if not self.config.get("enable_plugin", True):
+                yield event.plain_result("今日人品插件已关闭")
+                return
 
-        if event.is_private_chat():
-            yield event.plain_result("人品排行榜仅在群聊中可用")
-            return
+            if event.is_private_chat():
+                yield event.plain_result("人品排行榜仅在群聊中可用")
+                return
 
-        today_key = self.get_today_key()
-        fortunes = await self.load_data(self.fortune_file)
+            today_key = self.get_today_key()
+            fortunes = await self.load_data(self.fortune_file)
 
-        if today_key not in fortunes or not fortunes[today_key]:
-            yield event.plain_result("今天还没有人测试人品哦~")
-            return
+            if today_key not in fortunes or not fortunes[today_key]:
+                yield event.plain_result("今天还没有人测试人品哦~")
+                return
 
-        # 获取并排序今日人品
-        today_fortunes = fortunes[today_key]
-        sorted_fortunes = sorted(
-            today_fortunes.items(),
-            key=lambda x: x[1]["value"],
-            reverse=True
-        )
+            # 获取并排序今日人品
+            today_fortunes = fortunes[today_key]
+            sorted_fortunes = sorted(
+                today_fortunes.items(),
+                key=lambda x: x[1]["value"],
+                reverse=True
+            )
 
-        # 构建排行榜
-        result = f"📊【今日人品排行榜】{today_key}\n"
-        result += "━━━━━━━━━━━━━━━\n"
+            # 构建排行榜
+            result = f"📊【今日人品排行榜】{today_key}\n"
+            result += "━━━━━━━━━━━━━━━\n"
 
-        medals = ["🥇", "🥈", "🥉"]
-        for idx, (user_id, data) in enumerate(sorted_fortunes[:10]):
-            medal = medals[idx] if idx < 3 else f"{idx+1}."
-            name = data["name"]
-            value = data["value"]
-            level = self.get_fortune_level(value)
-            result += f"{medal} {name}: {value} ({level})\n"
+            medals = ["🥇", "🥈", "🥉"]
+            for idx, (user_id, data) in enumerate(sorted_fortunes[:10]):
+                medal = medals[idx] if idx < 3 else f"{idx+1}."
+                name = data["name"]
+                value = data["value"]
+                level = self.get_fortune_level(value)
+                result += f"{medal} {name}: {value} ({level})\n"
 
-        if len(sorted_fortunes) > 10:
-            result += f"\n...共 {len(sorted_fortunes)} 人已测试"
+            if len(sorted_fortunes) > 10:
+                result += f"\n...共 {len(sorted_fortunes)} 人已测试"
 
-        yield event.plain_result(result)
+            yield event.plain_result(result)
+
+        except Exception as e:
+            logger.error(f"处理人品排行指令时出错: {e}")
+            yield event.plain_result("抱歉，获取排行榜时出现了错误。")
 
     @filter.command("jrrphistory", alias={"jrrphi", "人品历史"})
     async def fortune_history(self, event: AstrMessageEvent):
         """查看个人人品历史"""
-        if not self.config.get("enable_plugin", True):
-            yield event.plain_result("今日人品插件已关闭")
-            return
+        try:
+            if not self.config.get("enable_plugin", True):
+                yield event.plain_result("今日人品插件已关闭")
+                return
 
-        user_id = event.get_sender_id()
-        user_name = await self.get_user_name(event)
-        history = await self.load_data(self.history_file)
+            user_id = event.get_sender_id()
+            user_name = await self.get_user_name(event)
+            history = await self.load_data(self.history_file)
 
-        if user_id not in history or not history[user_id]:
-            yield event.plain_result(f"【{user_name}】还没有人品测试记录")
-            return
+            if user_id not in history or not history[user_id]:
+                yield event.plain_result(f"【{user_name}】还没有人品测试记录")
+                return
 
-        user_history = history[user_id]
-        sorted_history = sorted(user_history.items(), reverse=True)[:10]
+            user_history = history[user_id]
+            sorted_history = sorted(user_history.items(), reverse=True)[:10]
 
-        # 计算统计信息
-        all_values = [record["value"] for record in user_history.values()]
-        avg_fortune = sum(all_values) / len(all_values)
-        max_fortune = max(all_values)
-        min_fortune = min(all_values)
+            # 计算统计信息
+            all_values = [record["value"] for record in user_history.values()]
+            avg_fortune = sum(all_values) / len(all_values)
+            max_fortune = max(all_values)
+            min_fortune = min(all_values)
 
-        result = f"📈【{user_name}的人品历史】\n"
-        result += "━━━━━━━━━━━━━━━\n"
+            result = f"📈【{user_name}的人品历史】\n"
+            result += "━━━━━━━━━━━━━━━\n"
 
-        for date_key, data in sorted_history:
-            value = data["value"]
-            level = self.get_fortune_level(value)
-            result += f"📅 {date_key}: {value} ({level})\n"
+            for date_key, data in sorted_history:
+                value = data["value"]
+                level = self.get_fortune_level(value)
+                result += f"📅 {date_key}: {value} ({level})\n"
 
-        result += "\n📊 统计信息：\n"
-        result += f"平均人品：{avg_fortune:.1f}\n"
-        result += f"最高人品：{max_fortune}\n"
-        result += f"最低人品：{min_fortune}\n"
-        result += f"测试次数：{len(all_values)}"
+            result += "\n📊 统计信息：\n"
+            result += f"平均人品：{avg_fortune:.1f}\n"
+            result += f"最高人品：{max_fortune}\n"
+            result += f"最低人品：{min_fortune}\n"
+            result += f"测试次数：{len(all_values)}"
 
-        yield event.plain_result(result)
+            yield event.plain_result(result)
+
+        except Exception as e:
+            logger.error(f"处理人品历史指令时出错: {e}")
+            yield event.plain_result("抱歉，获取历史记录时出现了错误。")
 
     async def terminate(self):
         """插件卸载时调用"""
