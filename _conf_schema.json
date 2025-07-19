@@ -33,6 +33,20 @@
     "editor_mode": true,
     "editor_language": "text"
   },
+  "enable_llm_repeat": {
+    "description": "重复查询时启用LLM",
+    "type": "bool",
+    "default": true,
+    "hint": "启用后重复查询也会调用LLM生成有趣回复"
+  },
+  "repeat_prompt": {
+    "description": "重复查询提示词",
+    "type": "text",
+    "default": "用户{user_name}今天已经查询过人品了，人品值是{value}({desc})。请用30字以内幽默地提醒ta已经查询过了。",
+    "hint": "可用变量: {user_name}, {value}, {desc}",
+    "editor_mode": true,
+    "editor_language": "text"
+  },
   "enable_rank": {
     "description": "启用排行榜功能",
     "type": "bool",
@@ -53,22 +67,19 @@
   },
   "ranges": {
     "description": "人品值范围配置",
-    "type": "list",
-    "default": [
-      {"min": 0, "max": 0, "description": "极其倒霉", "emoji": "💀", "weight": 0.5},
-      {"min": 1, "max": 2, "description": "倒大霉", "emoji": "😱", "weight": 1},
-      {"min": 3, "max": 10, "description": "十分不顺", "emoji": "😣", "weight": 5},
-      {"min": 11, "max": 20, "description": "略微不顺", "emoji": "😕", "weight": 10},
-      {"min": 21, "max": 30, "description": "正常运气", "emoji": "😐", "weight": 20},
-      {"min": 31, "max": 60, "description": "还不错", "emoji": "😊", "weight": 30},
-      {"min": 61, "max": 80, "description": "运气很好", "emoji": "😄", "weight": 20},
-      {"min": 81, "max": 98, "description": "好运连连", "emoji": "🎉", "weight": 10},
-      {"min": 99, "max": 99, "description": "极其好运", "emoji": "🌟", "weight": 1},
-      {"min": 100, "max": 100, "description": "万事皆允", "emoji": "👑", "weight": 0.5}
-    ],
-    "hint": "每个范围包含min(最小值)、max(最大值)、description(描述)、emoji(表情)、weight(权重)",
-    "editor_mode": true,
-    "editor_language": "json",
-    "editor_theme": "vs-dark"
+    "type": "object",
+    "default": {
+      "0": {"min": 0, "max": 0, "description": "极其倒霉", "emoji": "💀", "weight": 0.5},
+      "1": {"min": 1, "max": 2, "description": "倒大霉", "emoji": "😱", "weight": 1},
+      "2": {"min": 3, "max": 10, "description": "十分不顺", "emoji": "😣", "weight": 5},
+      "3": {"min": 11, "max": 20, "description": "略微不顺", "emoji": "😕", "weight": 10},
+      "4": {"min": 21, "max": 30, "description": "正常运气", "emoji": "😐", "weight": 20},
+      "5": {"min": 31, "max": 60, "description": "还不错", "emoji": "😊", "weight": 30},
+      "6": {"min": 61, "max": 80, "description": "运气很好", "emoji": "😄", "weight": 20},
+      "7": {"min": 81, "max": 98, "description": "好运连连", "emoji": "🎉", "weight": 10},
+      "8": {"min": 99, "max": 99, "description": "极其好运", "emoji": "🌟", "weight": 1},
+      "9": {"min": 100, "max": 100, "description": "万事皆允", "emoji": "👑", "weight": 0.5}
+    },
+    "hint": "配置人品值范围，使用对象格式而非数组以避免loading问题"
   }
 }
