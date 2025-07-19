@@ -19,22 +19,6 @@
 - 🛡️ **数据管理** - 支持管理员清除所有数据，用户清除个人数据
 - ⚙️ **高度可配置** - 支持自定义人品值范围、提示词等
 
-## 📦 安装
-
-### 方法一：通过 AstrBot 插件市场安装（推荐）
-
-1. 打开 AstrBot 管理面板
-2. 进入插件市场
-3. 搜索"今日人品"
-4. 点击安装
-
-### 方法二：手动安装
-
-```bash
-cd AstrBot/data/plugins
-git clone https://github.com/xSapientia/astrbot_plugin_daily_fortune.git
-```
-
 ## 🎯 使用方法
 
 ### 基础指令
@@ -46,19 +30,6 @@ git clone https://github.com/xSapientia/astrbot_plugin_daily_fortune.git
 | `/jrrphistory` | `/jrrphi`, `人品历史` | 查看个人历史记录 | 所有人 |
 | `/jrrpreset` | `人品数据库清除` | 清除所有人品数据 | 管理员 |
 | `/jrrpdel` | - | 清除个人人品数据 | 所有人 |
-
-### 使用示例
-
-```
-用户: /jrrp
-Bot: 【用户名】开始测试今日人品...
-
-🔮 水晶球中泛起神秘的涟漪，星光闪烁间显现出你的命运数字...
-
-💎 人品值：85
-✨ 运势：好运
-💬 建议：今天运气不错，可以试试买个彩票？
-```
 
 ## ⚙️ 配置说明
 
