@@ -5,44 +5,34 @@
     "default": true,
     "hint": "关闭后所有功能将停用"
   },
-  "min_value": {
-    "description": "人品值下限",
-    "type": "int",
-    "default": 0,
-    "hint": "最小可能的人品值"
-  },
-  "max_value": {
+  "max_fortune": {
     "description": "人品值上限",
     "type": "int",
     "default": 100,
-    "hint": "最大可能的人品值"
+    "hint": "人品值的最大值，默认为100"
   },
-  "enable_llm_process": {
-    "description": "启用LLM模拟检测过程",
+   "min_fortune": {
+    "description": "人品值下限",
+    "type": "int",
+    "default": 0,
+    "hint": "人品值的最小值，默认为0"
+  },
+  "use_llm": {
+    "description": "使用LLM生成占卜过程",
     "type": "bool",
-    "default": false,
-    "hint": "使用AI生成有趣的占卜过程描述"
+    "default": true,
+    "hint": "启用后将使用大语言模型生成占卜过程和建议"
   },
   "process_prompt": {
-    "description": "检测过程提示词",
+    "description": "占卜过程提示词",
     "type": "text",
-    "default": "用水晶球占卜的口吻，描述{user_name}的今日人品值是{value}({desc})的过程。要神秘且有趣，50字以内。",
-    "hint": "可用变量: {user_name}, {value}, {desc}",
-    "editor_mode": true,
-    "editor_language": "text"
-  },
-  "enable_llm_advice": {
-    "description": "启用LLM生成建议",
-    "type": "bool",
-    "default": false,
-    "hint": "使用AI根据人品值生成建议或吐槽"
+    "default": "你是一个神秘的占卜师，正在使用水晶球为用户[{name}]占卜今日人品值。请描述水晶球中浮现的画面和占卜过程，最后揭示今日人品值为{fortune}。描述要神秘且富有画面感，50字以内。",
+    "hint": "用于生成占卜过程的提示词，支持{name}和{fortune}变量"
   },
   "advice_prompt": {
-    "description": "建议生成提示词",
+    "description": "建议吐槽提示词",
     "type": "text",
-    "default": "根据{user_name}的今日人品值{value}({desc})，用幽默的方式给出今日建议或吐槽。30字以内。",
-    "hint": "可用变量: {user_name}, {value}, {desc}",
-    "editor_mode": true,
-    "editor_language": "text"
+    "default": "用户[{name}]的今日人品值为{fortune}，运势等级为{level}。请根据这个人品值给出今日建议或吐槽，要幽默风趣，50字以内。",
+    "hint": "用于生成建议的提示词，支持{name}、{fortune}和{level}变量"
   }
 }
