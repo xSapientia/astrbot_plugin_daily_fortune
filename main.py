@@ -13,7 +13,7 @@ from astrbot.api import logger, AstrBotConfig
     "astrbot_plugin_req_jrrp",
     "xSapientia",
     "今日人品查询插件",
-    "0.0.1",
+    "1.0.0",
     "https://github.com/xSapientia/astrbot_plugin_req_jrrp",
 )
 class JRRPPlugin(Star):
@@ -139,50 +139,6 @@ class JRRPPlugin(Star):
 
         return value, True, desc, emoji
 
-    async def generate_crystal_ball_text(self, event: AstrMessageEvent, user_name: str, value: int, desc: str, emoji: str) -> str:
-        """生成水晶球显示过程的文本"""
-        if not self.config.get("enable_llm_process", True):
-            # 如果禁用LLM，使用简单模板
-            return f"🔮 水晶球开始发光...\n✨ 光芒逐渐汇聚...\n\n{user_name}的今日人品值: {value} {emoji}\n运势: {desc}"
-
-        # 使用LLM生成
-        prompt_template = self.config.get("process_prompt",
-            "模拟一个水晶球显示人品值的神秘过程。用户名:{user_name}，人品值:{value}，运势描述:{desc}。请用50字以内生动描述水晶球的变化过程，最后告知人品值。")
-
-        prompt = prompt_template.format(
-            user_name=user_name,
-            value=value,
-            desc=desc
-        )
-
-        try:
-            llm_response = await event.request_llm(prompt)
-            return llm_response.get_result_str()
-        except Exception as e:
-            logger.error(f"调用LLM失败: {e}")
-            return f"🔮 水晶球开始发光...\n✨ 光芒逐渐汇聚...\n\n{user_name}的今日人品值: {value} {emoji}\n运势: {desc}"
-
-    async def generate_advice_text(self, event: AstrMessageEvent, user_name: str, value: int, desc: str) -> str:
-        """生成建议文本"""
-        if not self.config.get("enable_llm_advice", True):
-            return ""
-
-        prompt_template = self.config.get("advice_prompt",
-            "根据用户的人品值给出简短建议或吐槽。用户名:{user_name}，人品值:{value}(0-100)，运势:{desc}。请用30字以内幽默地给出建议。")
-
-        prompt = prompt_template.format(
-            user_name=user_name,
-            value=value,
-            desc=desc
-        )
-
-        try:
-            llm_response = await event.request_llm(prompt)
-            return f"\n💭 {llm_response.get_result_str()}"
-        except Exception as e:
-            logger.error(f"生成建议失败: {e}")
-            return ""
-
     @filter.command("jrrp", alias={"-jrrp", "今日人品"})
     async def jrrp(self, event: AstrMessageEvent):
         """查看今日人品"""
@@ -195,20 +151,55 @@ class JRRPPlugin(Star):
         # 获取人品值
         value, is_new, desc, emoji = self.get_jrrp_value(user_key, user_name)
 
-        # 生成基础文本
         if is_new:
             # 新查询，显示完整过程
-            result_text = await self.generate_crystal_ball_text(event, user_name, value, desc, emoji)
+            if self.config.get("enable_llm_process", True):
+                # 使用LLM生成水晶球过程
+                prompt_template = self.config.get("process_prompt",
+                    "模拟一个水晶球显示人品值的神秘过程。用户名:{user_name}，人品值:{value}，运势描述:{desc}。请用50字以内生动描述水晶球的变化过程，最后告知人品值。")
 
-            # 添加建议
-            advice = await self.generate_advice_text(event, user_name, value, desc)
-            if advice:
-                result_text += advice
+                prompt = prompt_template.format(
+                    user_name=user_name,
+                    value=value,
+                    desc=desc
+                )
+
+                yield event.request_llm(prompt)
+            else:
+                # 使用默认模板
+                result_text = f"🔮 水晶球开始发光...\n✨ 光芒逐渐汇聚...\n\n{user_name}的今日人品值: {value} {emoji}\n运势: {desc}"
+                yield event.plain_result(result_text)
+
+            # 生成建议
+            if self.config.get("enable_llm_advice", True):
+                advice_prompt = self.config.get("advice_prompt",
+                    "根据用户的人品值给出简短建议或吐槽。用户名:{user_name}，人品值:{value}(0-100)，运势:{desc}。请用30字以内幽默地给出建议。")
+
+                prompt = advice_prompt.format(
+                    user_name=user_name,
+                    value=value,
+                    desc=desc
+                )
+
+                yield event.request_llm(prompt)
         else:
-            # 重复查询，简单显示
-            result_text = f"{user_name}今天已经查询过了哦！\n今日人品值: {value} {emoji}\n运势: {desc}"
+            # 重复查询
+            if self.config.get("enable_llm_repeat", True):
+                # 使用LLM生成重复查询的有趣回复
+                repeat_prompt = self.config.get("repeat_prompt",
+                    "用户{user_name}今天已经查询过人品了，人品值是{value}({desc})。请用30字以内幽默地提醒ta已经查询过了。")
 
-        yield event.plain_result(result_text)
+                prompt = repeat_prompt.format(
+                    user_name=user_name,
+                    value=value,
+                    desc=desc
+                )
+
+                yield event.request_llm(prompt)
+            else:
+                # 使用默认回复
+                result_text = f"{user_name}今天已经查询过了哦！\n今日人品值: {value} {emoji}\n运势: {desc}"
+                yield event.plain_result(result_text)
 
     @filter.command("jrrp_rank")
     async def jrrp_rank(self, event: AstrMessageEvent):
@@ -236,7 +227,7 @@ class JRRPPlugin(Star):
         today_users.sort(key=lambda x: x["value"], reverse=True)
 
         # 生成排行榜文本
-        rank_text = "📊 今日人品排行榜\n" + "="*20 + "\n"
+        rank_text = "📊 今日人品排行榜\n" + "=<font color=#AAAAAA>20 + "\n"
         for i, user in enumerate(today_users[:10], 1):  # 只显示前10名
             rank_text += f"{i}. {user['name']}: {user['value']} {user['emoji']}\n"
 
@@ -250,14 +241,14 @@ class JRRPPlugin(Star):
 
         # 查找该用户的所有历史记录
         history = []
-        for key, data in self.data.items():
-            if key == user_key:
-                history.append({
-                    "date": data["date"],
-                    "value": data["value"],
-                    "desc": data.get("description", ""),
-                    "emoji": data.get("emoji", "")
-                })
+        if user_key in self.data:
+            # 当前记录
+            history.append({
+                "date": self.data[user_key]["date"],
+                "value": self.data[user_key]["value"],
+                "desc": self.data[user_key].get("description", ""),
+                "emoji": self.data[user_key].get("emoji", "")
+            })
 
         if not history:
             yield event.plain_result(f"{user_name}还没有查询过人品哦！")
