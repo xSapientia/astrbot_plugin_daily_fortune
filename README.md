@@ -27,9 +27,9 @@
 |------|------|------|------|
 | `/jrrp` | - | 测试今日人品值 | 所有人 |
 | `/jrrprank` | `jrrp排行` | 查看今日人品排行榜 | 仅群聊 |
-| `/jrrp history` | `jrrp hi` | 查看个人历史记录 | 所有人 |
-| `/jrrp reset` | - | 清除所有人品数据 | 管理员 |
-| `/jrrp delete` | `jrrp del` | 清除个人人品数据 | 所有人 |
+| `/jrrphistory` | `jrrp hi` | 查看个人历史记录 | 所有人 |
+| `/jrrpreset` | - | 清除所有人品数据 | 管理员 |
+| `/jrrpdelete` | `jrrp del` | 清除个人人品数据 | 所有人 |
 
 ## ⚙️ 配置说明
 
