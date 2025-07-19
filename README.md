@@ -1,6 +1,3 @@
-# {{插件名称，即github的Repository name}}
-{{metadata.yaml中的desc内容}}
-
 # 今日人品 AstrBot 插件
 
 <div align="center">
