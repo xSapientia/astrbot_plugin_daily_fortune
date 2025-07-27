@@ -8,8 +8,8 @@ from astrbot.api.star import Context, Star, register
 from astrbot.api import logger, AstrBotConfig
 
 # 导入核心模块
-from core import FortuneAlgorithm, Storage, UserInfoManager, LLMManager
-from command import CommandHandler
+from .core import FortuneAlgorithm, Storage, UserInfoManager, LLMManager
+from .command import CommandHandler
 
 
 @register(
@@ -32,10 +32,18 @@ class DailyFortunePlugin(Star):
         """
         super().__init__(context)
         self.config = config
-        self.metadata = self.context.get_registered_star(self.__class__.__module__).metadata
+        
+        # 获取插件元数据
+        try:
+            # 尝试从注册信息中获取
+            star_metadata = self.context.get_registered_star("astrbot_plugin_daily_fortune")
+            self.plugin_name = star_metadata.name if star_metadata else "astrbot_plugin_daily_fortune"
+        except:
+            # 如果获取失败，使用默认名称
+            self.plugin_name = "astrbot_plugin_daily_fortune"
         
         # 初始化核心模块
-        self.storage = Storage(plugin_name=self.metadata.name)
+        self.storage = Storage(plugin_name=self.plugin_name)
         self.algorithm = FortuneAlgorithm(config)
         self.user_info = UserInfoManager(context)
         self.llm = LLMManager(context, config)
@@ -43,7 +51,7 @@ class DailyFortunePlugin(Star):
         # 初始化指令处理器
         self.handler = CommandHandler(self)
         
-        logger.info(f"{self.metadata.name} 插件已加载")
+        logger.info(f"{self.plugin_name} 插件已加载")
         
     @filter.command("jrrp")
     async def jrrp(self, event: AstrMessageEvent, subcommand: str = ""):
@@ -85,13 +93,13 @@ class DailyFortunePlugin(Star):
             
     async def terminate(self):
         """插件卸载时的清理工作"""
-        logger.info(f"{self.metadata.name} 插件正在卸载...")
+        logger.info(f"{self.plugin_name} 插件正在卸载...")
         
         # 调用存储模块的清理方法
         self.storage.cleanup_data(
             delete_data=self.config.get("delete_data_on_uninstall", False),
             delete_config=self.config.get("delete_config_on_uninstall", False),
-            config_name=self.metadata.name
+            config_name=self.plugin_name
         )
         
-        logger.info(f"{self.metadata.name} 插件已卸载")
+        logger.info(f"{self.plugin_name} 插件已卸载")
