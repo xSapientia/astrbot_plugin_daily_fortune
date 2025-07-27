@@ -216,7 +216,7 @@ class LLMManager:
             
             # 获取过程模拟prompt和结果prompt
             process_prompt = self.config.get("prompts", {}).get("process_prompt",
-                "读取'user_id:{user_id}'相关信息，使用适当的称呼，模拟你使用水晶球缓慢复现的过程，50字以内")
+                "读取'user_id:{user_id}'相关信息，以对其适当的称呼开头，模拟你使用水晶球缓慢复现的过程，50字以内")
             advice_prompt = self.config.get("prompts", {}).get("advice_prompt",
                 "人品值分段为{ranges_jrrp}，对应运势是{ranges_fortune}\n{user_id}今日人品值{jrrp}\n直接给出你的评语和建议，50字以内")
                 
