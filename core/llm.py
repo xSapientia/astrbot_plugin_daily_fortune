@@ -140,6 +140,7 @@ class LLMManager:
     async def generate_fortune_content(self, vars_dict: Dict[str, str]) -> Tuple[str, str]:
         """
         使用LLM生成运势内容（一次调用生成过程和建议）
+        独立调用，不触发AstrBot本身的人格功能
         
         Args:
             vars_dict: 包含所有模板变量的字典
@@ -160,16 +161,51 @@ class LLMManager:
             return "水晶球中浮现出神秘的光芒...", "保持乐观的心态，好运自然来。"
             
         try:
-            # 优先使用默认provider，如果配置的provider不可用
-            provider = self.context.get_using_provider()
-            if not provider and self.provider:
-                provider = self.provider
+            # 获取Provider，优先使用配置的provider_id，否则使用默认provider
+            provider = None
+            provider_id = self.config.get("llm_provider_id", "").strip()
+            
+            if provider_id:
+                # 使用指定的provider
+                provider = self.context.get_provider_by_id(provider_id)
+                if not provider:
+                    logger.warning(f"[daily_fortune] 指定的provider_id不存在: {provider_id}")
+            
+            if not provider:
+                # 使用默认provider，但要确保不触发AstrBot的人格系统
+                provider = self.context.get_using_provider()
                 
             if not provider:
                 logger.warning("[daily_fortune] 没有可用的LLM提供商")
                 return "水晶球中浮现出神秘的光芒...", "保持乐观的心态，好运自然来。"
                 
-            # 构建合并的提示词
+            # 获取人格prompt
+            persona_prompt = ""
+            persona_name = self.config.get("persona_name", "").strip()
+            
+            if persona_name:
+                # 使用指定的人格
+                personas = self.context.provider_manager.personas
+                for p in personas:
+                    if p.get('name') == persona_name:
+                        persona_prompt = p.get('prompt', '')
+                        logger.debug(f"[daily_fortune] 使用指定人格: {persona_name}")
+                        break
+                else:
+                    logger.warning(f"[daily_fortune] 未找到指定人格: {persona_name}")
+            else:
+                # 使用默认人格
+                default_persona = self.context.provider_manager.selected_default_persona
+                if default_persona and default_persona.get("name"):
+                    default_persona_name = default_persona["name"]
+                    personas = self.context.provider_manager.personas
+                    for p in personas:
+                        if p.get('name') == default_persona_name:
+                            persona_prompt = p.get('prompt', '')
+                            logger.debug(f"[daily_fortune] 使用默认人格: {default_persona_name}")
+                            break
+                            
+            # 构建提示词
             process_prompt = self.config.get("prompts", {}).get("process",
                 "读取'user_id:{user_id}'相关信息，使用适当的称呼，模拟你使用水晶球缓慢复现今日结果的过程，50字以内")
             advice_prompt = self.config.get("prompts", {}).get("advice",
@@ -179,8 +215,12 @@ class LLMManager:
             process_prompt = process_prompt.format(**vars_dict)
             advice_prompt = advice_prompt.format(**vars_dict)
             
-            # 合并提示词，要求LLM按照特定格式返回
-            combined_prompt = f"""用户昵称是'{vars_dict.get('nickname', '用户')}'。
+            # 构建完整的prompt，确保人格prompt在最前面
+            full_prompt = ""
+            if persona_prompt:
+                full_prompt += f"{persona_prompt}\n\n"
+            
+            full_prompt += f"""用户昵称是'{vars_dict.get('nickname', '用户')}'。
 请为该用户生成今日运势内容，包含两部分：
 
 1. 【过程】{process_prompt}
@@ -194,38 +234,16 @@ class LLMManager:
 【建议】
 （在这里写建议内容）"""
             
-            # 获取当前会话的人格信息
-            contexts = []
-            system_prompt = ""
-            
-            # 处理system_prompt - 某些模型可能不支持
-            try:
-                # 首先尝试使用system_prompt
-                if self.persona_name:
-                    # 使用指定的人格
-                    personas = self.context.provider_manager.personas
-                    for p in personas:
-                        if p.get('name') == self.persona_name:
-                            system_prompt = p.get('prompt', '')
-                            break
-                            
-                response = await provider.text_chat(
-                    prompt=combined_prompt,
-                    contexts=contexts,
-                    system_prompt=system_prompt
-                )
-            except Exception as e:
-                # 如果system_prompt导致错误，尝试将其合并到prompt中
-                logger.debug(f"使用system_prompt失败，尝试合并到prompt: {e}")
-                combined_prompt = f"{system_prompt}\n\n{combined_prompt}" if system_prompt else combined_prompt
-                try:
-                    response = await provider.text_chat(
-                        prompt=combined_prompt,
-                        contexts=contexts
-                    )
-                except Exception as e2:
-                    logger.error(f"LLM调用完全失败: {e2}")
-                    return "水晶球中浮现出神秘的光芒...", "保持乐观的心态，好运自然来。"
+            # 直接调用provider的text_chat方法，不使用session_id等会话管理参数
+            # 这样可以避免触发AstrBot的人格系统和会话管理
+            response = await provider.text_chat(
+                prompt=full_prompt,
+                session_id=None,  # 不使用会话管理
+                contexts=[],      # 不使用历史上下文
+                image_urls=[],    # 不传递图片
+                func_tool=None,   # 不使用函数工具
+                system_prompt=""  # 不使用额外的system_prompt，人格已经在prompt中
+            )
                     
             if response and response.completion_text:
                 # 解析返回的内容
@@ -236,14 +254,20 @@ class LLMManager:
                 process = process_match.group(1).strip() if process_match else "水晶球中浮现出神秘的光芒..."
                 advice = advice_match.group(1).strip() if advice_match else "保持乐观的心态，好运自然来。"
                 
+                # 清理内容，移除可能的多余换行和空格
+                process = re.sub(r'\s+', ' ', process).strip()
+                advice = re.sub(r'\s+', ' ', advice).strip()
+                
                 # 限制长度
                 process = process[:100] if len(process) > 100 else process
                 advice = advice[:100] if len(advice) > 100 else advice
                 
+                logger.debug(f"[daily_fortune] LLM生成成功 - 过程: {process[:20]}... 建议: {advice[:20]}...")
                 return process, advice
             else:
+                logger.warning("[daily_fortune] LLM返回空响应")
                 return "水晶球中浮现出神秘的光芒...", "保持乐观的心态，好运自然来。"
                 
         except Exception as e:
-            logger.error(f"LLM生成失败: {e}")
+            logger.error(f"[daily_fortune] LLM生成失败: {e}")
             return "水晶球中浮现出神秘的光芒...", "保持乐观的心态，好运自然来。"

@@ -1,4 +1,22 @@
 {
+  "group_whitelist": {
+    "description": "群聊白名单配置",
+    "type": "object",
+    "items": {
+      "enable": {
+        "description": "启用群聊白名单",
+        "type": "bool",
+        "default": false,
+        "hint": "开启后只有白名单中的群聊才能使用本插件功能"
+      },
+      "groups": {
+        "description": "白名单群号列表",
+        "type": "list",
+        "default": [],
+        "hint": "群号列表，为空时白名单功能无效。示例：[\"123456789\", \"987654321\"]"
+      }
+    }
+  },
   "jrrp_algorithm": {
     "description": "人品值随机算法",
     "type": "string",
