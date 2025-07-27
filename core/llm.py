@@ -207,9 +207,9 @@ class LLMManager:
                             
             # 构建提示词
             process_prompt = self.config.get("prompts", {}).get("process",
-                "读取'user_id:{user_id}'相关信息，使用适当的称呼，模拟你使用水晶球缓慢复现今日结果的过程，50字以内")
+                "模拟过程中不得包含{jrrp}和{fortune}\n---\n读取'user_id:{user_id}'相关信息，使用适当的称呼，模拟你使用水晶球缓慢复现的过程，50字以内")
             advice_prompt = self.config.get("prompts", {}).get("advice",
-                "人品值分段为{jrrp_ranges}，对应运势是{fortune_names}\n{user_id}今日人品值{jrrp}\n上述作为人品值好坏的参考，接下来，\n直接给出你的评语和建议，50字以内")
+                "人品值分段为{jrrp_ranges}，对应运势是{fortune_ranges}\n{user_id}今日人品值{jrrp}\n评语或建议中不得包含{jrrp}和{fortune}\n---\n直接给出你的评语和建议，50字以内")
                 
             # 格式化提示词
             process_prompt = process_prompt.format(**vars_dict)

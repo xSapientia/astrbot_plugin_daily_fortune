@@ -30,13 +30,13 @@
     "default": "0-1, 2-10, 11-20, 21-30, 31-40, 41-60, 61-80, 81-98, 99-100",
     "hint": "人品值分段，格式为 '最小值-最大值, 最小值-最大值, ...'，从左到右匹配"
   },
-  "fortune_names": {
+  "fortune_ranges": {
     "description": "运势名称配置",
     "type": "string",
     "default": "极凶, 大凶, 凶, 小凶, 末吉, 小吉, 中吉, 大吉, 极吉",
     "hint": "运势名称列表，用逗号分隔，必须与人品值分段数量对应，多余的会被舍去"
   },
-  "fortune_emojis": {
+  "emoji_ranges": {
     "description": "运势表情配置",
     "type": "string",
     "default": "💀, 😨, 😰, 😟, 😐, 🙂, 😊, 😄, 🤩",
@@ -82,7 +82,7 @@
     "description": "@查询他人但对方未查询时的提示信息",
     "type": "string",
     "default": "{target_nickname} 今天还没有查询过人品值呢~",
-    "hint": "支持变量: {target_nickname}, {target_user_id}, {sender_nickname}, {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji}, {process}, {advice}, {avgjrrp}, {maxjrrp}, {minjrrp}, {ranks}, {medal}, {medals}, {jrrp_ranges}, {fortune_names}, {fortune_emojis}"
+    "hint": "支持变量: {target_nickname}, {target_user_id}, {sender_nickname}, {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji}, {process}, {advice}, {avgjrrp}, {maxjrrp}, {minjrrp}, {ranks}, {medal}, {medals}, {jrrp_ranges}, {fortune_ranges}, {emoji_ranges}"
   },
   "history_days": {
     "description": "个人历史记录计算与缓存天数",
@@ -131,14 +131,14 @@
       "process": {
         "description": "过程模拟提示词",
         "type": "text",
-        "default": "读取'user_id:{user_id}'相关信息，使用适当的称呼，模拟你使用水晶球缓慢复现今日结果的过程，50字以内",
-        "hint": "支持变量: {user_id}, {nickname}, {card}, {title}, {jrrp}, {fortune}, {femoji}, {date}, {medals}, {jrrp_ranges}, {fortune_names}, {fortune_emojis}"
+        "default": "模拟过程中不得包含{jrrp}和{fortune}\n---\n读取'user_id:{user_id}'相关信息，使用适当的称呼，模拟你使用水晶球缓慢复现的过程，50字以内",
+        "hint": "支持变量: {user_id}, {nickname}, {card}, {title}, {jrrp}, {fortune}, {femoji}, {date}, {medals}, {jrrp_ranges}, {fortune_ranges}, {emoji_ranges}"
       },
       "advice": {
         "description": "评语建议提示词",
         "type": "text",
-        "default": "人品值分段为{jrrp_ranges}，对应运势是{fortune_names}\n{user_id}今日人品值{jrrp}\n上述作为人品值好坏的参考，接下来，\n直接给出你的评语和建议，50字以内",
-        "hint": "支持变量: {user_id}, {nickname}, {card}, {title}, {jrrp}, {fortune}, {femoji}, {date}, {medals}, {jrrp_ranges}, {fortune_names}, {fortune_emojis}"
+        "default": "人品值分段为{jrrp_ranges}，对应运势是{fortune_ranges}\n{user_id}今日人品值{jrrp}\n评语或建议中不得包含{jrrp}和{fortune}\n---\n直接给出你的评语和建议，50字以内",
+        "hint": "支持变量: {user_id}, {nickname}, {card}, {title}, {jrrp}, {fortune}, {femoji}, {date}, {medals}, {jrrp_ranges}, {fortune_ranges}, {emoji_ranges}"
       }
     }
   },
