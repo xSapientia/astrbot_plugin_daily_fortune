@@ -1,7 +1,7 @@
 # AstrBot 每日人品插件 (Daily Fortune)
 
-[![version](https://img.shields.io/badge/version-0.1.0-blue.svg)](https://github.com/xSapientia/astrbot_plugin_daily_fortune1)
-[![license](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/xSapientia/astrbot_plugin_daily_fortune1/blob/main/LICENSE)
+[![version](https://img.shields.io/badge/version-0.1.1-blue.svg)](https://github.com/xSapientia/astrbot_plugin_daily_fortune)
+[![license](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/xSapientia/astrbot_plugin_daily_fortune/blob/main/LICENSE)
 [![platform](https://img.shields.io/badge/AstrBot-%3E%3D3.4.0-orange.svg)](https://github.com/AstrBotDevs/AstrBot)
 
 一款功能强大、高度可配置的每日人品值和运势查询插件，为你的 AstrBot 添加趣味性互动！
@@ -82,7 +82,7 @@
 
 ## 🛠️ 配置说明
 
-插件提供了丰富的配置项，您可以在 `管理面板` -> `插件市场` -> `已安装` -> `astrbot_plugin_daily_fortune1` -> `管理` -> `配置` 中进行修改。
+插件提供了丰富的配置项，您可以在 `管理面板` -> `插件市场` -> `已安装` -> `astrbot_plugin_daily_fortune` -> `管理` -> `配置` 中进行修改。
 
 ### 核心配置
 
@@ -128,6 +128,15 @@
 - **特殊变量**：`{target_nickname}`, `{target_user_id}`, `{sender_nickname}` (仅在特定场景)
 
 ## 🔄 更新日志
+
+-   **v0.1.1** (2025-07-27)
+    -   **【重构】** 代码模块化重构，提升代码质量和可维护性：
+        -   将1000+行单文件拆分为8个模块文件
+        -   主文件精简至94行（减少90%+）
+        -   明确的模块职责分离：算法、存储、LLM、用户信息、指令处理
+    -   **【优化】** LLM调用优化：一次调用同时生成过程和建议，减少API消耗
+    -   **【修复】** 修正数据存储路径，使用正确的 `data/plugin_data/` 目录
+    -   **【调整】** 插件名称规范化，去除末尾数字
 
 -   **v0.1.0** (2025-07-26)
     -   **【调整】** 移除 `jrrpdelete` 中@他人的功能，现在只能删除自己的数据。
@@ -205,13 +214,13 @@
 1. **人品值唯一性**：每个用户每天只能随机一次人品值，结果会被缓存。
 2. **LLM依赖**：首次查询需要调用LLM生成运势解读，请确保LLM服务正常。
 3. **权限控制**：删除他人数据和初始化功能需要管理员权限。
-4. **数据持久化**：插件数据存储在 `data/plugin_data/astrbot_plugin_daily_fortune1/` 目录下。
+4. **数据持久化**：插件数据存储在 `data/plugin_data/astrbot_plugin_daily_fortune/` 目录下。
 5. **随机种子**：重置和初始化操作会重置随机种子，确保随机性。
 
 ## 💡 反馈与建议
 
 如果您在使用过程中遇到任何问题或有好的建议，欢迎提交 Issue：
-https://github.com/xSapientia/astrbot_plugin_daily_fortune1/issues
+https://github.com/xSapientia/astrbot_plugin_daily_fortune/issues
 
 ---
 
