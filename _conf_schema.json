@@ -84,6 +84,12 @@
     "default": "{target_nickname} 今天还没有查询过人品值呢~",
     "hint": "支持变量: {target_nickname}, {target_user_id}, {sender_nickname}, {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji}, {process}, {advice}, {avgjrrp}, {maxjrrp}, {minjrrp}, {ranks}, {medal}, {medals}, {ranges_jrrp}, {ranges_fortune}, {ranges_emoji}"
   },
+  "history_display_count": {
+    "description": "历史记录显示数量",
+    "type": "int",
+    "default": 10,
+    "hint": "jrrphistory命令显示最近多少条记录，设置为0显示所有记录"
+  },
   "history_days": {
     "description": "个人历史记录计算与缓存天数",
     "type": "int",
