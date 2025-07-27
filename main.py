@@ -71,6 +71,7 @@ class DailyFortunePlugin(Star):
     async def jrrp(self, event: AstrMessageEvent, subcommand: str = ""):
         """今日人品查询"""
         if not self._check_whitelist_permission(event):
+            event.stop_event()  # 终止事件传播，阻止AstrBot本身的LLM调用
             return
             
         async for result in self.handler.handle_jrrp(event, subcommand):
@@ -80,6 +81,7 @@ class DailyFortunePlugin(Star):
     async def jrrprank(self, event: AstrMessageEvent):
         """群内今日人品排行榜"""
         if not self._check_whitelist_permission(event):
+            event.stop_event()  # 终止事件传播，阻止AstrBot本身的LLM调用
             return
             
         async for result in self.handler.handle_jrrprank(event):
@@ -89,6 +91,7 @@ class DailyFortunePlugin(Star):
     async def jrrphistory(self, event: AstrMessageEvent):
         """查看人品历史记录"""
         if not self._check_whitelist_permission(event):
+            event.stop_event()  # 终止事件传播，阻止AstrBot本身的LLM调用
             return
             
         async for result in self.handler.handle_jrrphistory(event):
@@ -98,6 +101,7 @@ class DailyFortunePlugin(Star):
     async def jrrpdelete(self, event: AstrMessageEvent, confirm: str = ""):
         """删除个人人品历史记录（保留今日）"""
         if not self._check_whitelist_permission(event):
+            event.stop_event()  # 终止事件传播，阻止AstrBot本身的LLM调用
             return
             
         async for result in self.handler.handle_jrrpdelete(event, confirm):
@@ -108,6 +112,7 @@ class DailyFortunePlugin(Star):
     async def jrrpinitialize(self, event: AstrMessageEvent, confirm: str = ""):
         """初始化今日人品记录（仅管理员）"""
         if not self._check_whitelist_permission(event):
+            event.stop_event()  # 终止事件传播，阻止AstrBot本身的LLM调用
             return
             
         async for result in self.handler.handle_jrrpinitialize(event, confirm):
@@ -118,6 +123,7 @@ class DailyFortunePlugin(Star):
     async def jrrpreset(self, event: AstrMessageEvent, confirm: str = ""):
         """重置所有人品数据（仅管理员）"""
         if not self._check_whitelist_permission(event):
+            event.stop_event()  # 终止事件传播，阻止AstrBot本身的LLM调用
             return
             
         async for result in self.handler.handle_jrrpreset(event, confirm):
@@ -127,6 +133,10 @@ class DailyFortunePlugin(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     async def jrrpwhitelist(self, event: AstrMessageEvent, action: str = ""):
         """群聊白名单管理（仅管理员）"""
+        if not self._check_whitelist_permission(event):
+            event.stop_event()  # 终止事件传播，阻止AstrBot本身的LLM调用
+            return
+            
         if action == "status":
             # 查看白名单状态
             status_info = self.whitelist.get_whitelist_info()
