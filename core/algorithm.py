@@ -53,33 +53,33 @@ class FortuneAlgorithm:
     def _init_fortune_levels(self):
         """初始化运势等级映射"""
         # 获取配置的人品值分段字符串
-        jrrp_ranges_str = self.config.get("jrrp_ranges", "0-1, 2-10, 11-20, 21-30, 31-40, 41-60, 61-80, 81-98, 99-100")
-        jrrp_ranges_config = self._parse_ranges_string(jrrp_ranges_str)
+        ranges_jrrp_str = self.config.get("ranges_jrrp", "0-1, 2-10, 11-20, 21-30, 31-40, 41-60, 61-80, 81-98, 99-100")
+        ranges_jrrp_config = self._parse_ranges_string(ranges_jrrp_str)
         
         # 获取配置的运势描述字符串
-        fortune_ranges_str = self.config.get("fortune_ranges", "极凶, 大凶, 凶, 小凶, 末吉, 小吉, 中吉, 大吉, 极吉")
-        fortune_ranges_config = self._parse_list_string(fortune_ranges_str)
+        ranges_fortune_str = self.config.get("ranges_fortune", "极凶, 大凶, 凶, 小凶, 末吉, 小吉, 中吉, 大吉, 极吉")
+        ranges_fortune_config = self._parse_list_string(ranges_fortune_str)
         
         # 获取配置的emoji字符串
-        emoji_ranges_str = self.config.get("emoji_ranges", "💀, 😨, 😰, 😟, 😐, 🙂, 😊, 😄, 🤩")
-        emoji_ranges_config = self._parse_list_string(emoji_ranges_str)
+        ranges_emoji_str = self.config.get("ranges_emoji", "💀, 😨, 😰, 😟, 😐, 🙂, 😊, 😄, 🤩")
+        ranges_emoji_config = self._parse_list_string(ranges_emoji_str)
         
         # 保存配置字符串供外部使用
-        self.jrrp_ranges_str = jrrp_ranges_str
-        self.fortune_ranges_str = fortune_ranges_str
-        self.emoji_ranges_str = emoji_ranges_str
+        self.ranges_jrrp_str = ranges_jrrp_str
+        self.ranges_fortune_str = ranges_fortune_str
+        self.ranges_emoji_str = ranges_emoji_str
         
         # 构建运势等级映射
         self.fortune_levels = {}
         
-        for i, range_config in enumerate(jrrp_ranges_config):
+        for i, range_config in enumerate(ranges_jrrp_config):
             if len(range_config) >= 2:
                 min_val = int(range_config[0])
                 max_val = int(range_config[1])
                 
                 # 获取对应的运势描述和emoji，如果超出范围则使用默认值
-                fortune_name = fortune_ranges_config[i] if i < len(fortune_ranges_config) else "未知"
-                fortune_emoji = emoji_ranges_config[i] if i < len(emoji_ranges_config) else "❓"
+                fortune_name = ranges_fortune_config[i] if i < len(ranges_fortune_config) else "未知"
+                fortune_emoji = ranges_emoji_config[i] if i < len(ranges_emoji_config) else "❓"
                 
                 self.fortune_levels[(min_val, max_val)] = (fortune_name, fortune_emoji)
                 
@@ -194,7 +194,7 @@ class FortuneAlgorithm:
             包含运势相关变量的字典
         """
         return {
-            "jrrp_ranges": self.jrrp_ranges_str,
-            "fortune_ranges": self.fortune_ranges_str,
-            "emoji_ranges": self.emoji_ranges_str
+            "ranges_jrrp": self.ranges_jrrp_str,
+            "ranges_fortune": self.ranges_fortune_str,
+            "ranges_emoji": self.ranges_emoji_str
         }

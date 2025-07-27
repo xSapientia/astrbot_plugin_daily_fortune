@@ -147,13 +147,6 @@ class LLMManager:
             
         Returns:
             (过程描述, 建议) 元组
-            
-        使用示例:
-            process, advice = await llm_manager.generate_fortune_content(vars_dict)
-            # 然后将返回值添加到模板变量中
-            vars_dict['process'] = process
-            vars_dict['advice'] = advice
-            # 这样就可以在模板中使用 {process} 和 {advice} 了
         """
         # 检查是否启用LLM（通过配置）
         if not self.config.get("enable_llm_calls", True):
@@ -161,25 +154,36 @@ class LLMManager:
             return "水晶球中浮现出神秘的光芒...", "保持乐观的心态，好运自然来。"
             
         try:
-            # 获取Provider，优先使用配置的provider_id，否则使用默认provider
+            # 获取Provider - 使用优先级:插件配置的provider_id>第三方api>默认provider
             provider = None
             provider_id = self.config.get("llm_provider_id", "").strip()
             
+            # 1. 优先使用插件配置的provider_id
             if provider_id:
-                # 使用指定的provider
                 provider = self.context.get_provider_by_id(provider_id)
-                if not provider:
+                if provider:
+                    logger.debug(f"[daily_fortune] 使用指定provider: {provider_id}")
+                else:
                     logger.warning(f"[daily_fortune] 指定的provider_id不存在: {provider_id}")
             
+            # 2. 如果没有指定provider或指定的不存在，检查第三方API配置
             if not provider:
-                # 使用默认provider，但要确保不触发AstrBot的人格系统
+                api_config = self.config.get("llm_api", {})
+                if api_config.get("llm_api_key") and api_config.get("llm_url"):
+                    logger.debug("[daily_fortune] 配置了第三方API，但暂不支持直接调用")
+                    # TODO: 这里可以实现第三方API的直接调用
+                    
+            # 3. 最后使用默认provider
+            if not provider:
                 provider = self.context.get_using_provider()
+                if provider:
+                    logger.debug("[daily_fortune] 使用默认provider")
                 
             if not provider:
                 logger.warning("[daily_fortune] 没有可用的LLM提供商")
                 return "水晶球中浮现出神秘的光芒...", "保持乐观的心态，好运自然来。"
                 
-            # 获取人格prompt
+            # 获取人格prompt - 使用优先级:插件配置的persona_name>默认persona
             persona_prompt = ""
             persona_name = self.config.get("persona_name", "").strip()
             
@@ -193,7 +197,8 @@ class LLMManager:
                         break
                 else:
                     logger.warning(f"[daily_fortune] 未找到指定人格: {persona_name}")
-            else:
+            
+            if not persona_prompt:
                 # 使用默认人格
                 default_persona = self.context.provider_manager.selected_default_persona
                 if default_persona and default_persona.get("name"):
@@ -209,42 +214,44 @@ class LLMManager:
             result_template = self.config.get("templates", {}).get("resault_template",
                 "🔮 {process}\n💎 人品值：{jrrp}\n✨ 运势：{fortune}\n💬 建议：{advice}")
             
-            # 构建过程和建议的提示词
+            # 获取过程模拟prompt和结果prompt
             process_prompt = self.config.get("prompts", {}).get("process_prompt",
-                "模拟过程中不得包含{jrrp}和{fortune}\n---\n读取'user_id:{user_id}'相关信息，使用适当的称呼，模拟你使用水晶球缓慢复现的过程，50字以内")
+                "读取'user_id:{user_id}'相关信息，使用适当的称呼，模拟你使用水晶球缓慢复现的过程，50字以内")
             advice_prompt = self.config.get("prompts", {}).get("advice_prompt",
-                "人品值分段为{jrrp_ranges}，对应运势是{fortune_ranges}\n{user_id}今日人品值{jrrp}\n评语或建议中不得包含{jrrp}和{fortune}\n---\n直接给出你的评语和建议，50字以内")
+                "人品值分段为{ranges_jrrp}，对应运势是{ranges_fortune}\n{user_id}今日人品值{jrrp}\n直接给出你的评语和建议，50字以内")
                 
-            # 格式化过程和建议提示词
+            # 格式化提示词
             formatted_process_prompt = process_prompt.format(**vars_dict)
             formatted_advice_prompt = advice_prompt.format(**vars_dict)
             
-            # 创建包含格式化提示词的变量字典
+            # 使用{process_prompt}和{advice_prompt}替换模板中的{process}和{advice}
+            template_with_prompts = result_template.replace("{process}", "{process_prompt}").replace("{advice}", "{advice_prompt}")
+            
+            # 准备模板变量
             template_vars = vars_dict.copy()
-            template_vars['process'] = f"[请根据以下要求生成过程描述]\n{formatted_process_prompt}"
-            template_vars['advice'] = f"[请根据以下要求生成建议内容]\n{formatted_advice_prompt}"
+            template_vars['process_prompt'] = formatted_process_prompt
+            template_vars['advice_prompt'] = formatted_advice_prompt
             
-            # 使用模板格式化最终prompt
-            formatted_template = result_template.format(**template_vars)
+            # 格式化模板
+            formatted_template = template_with_prompts.format(**template_vars)
             
-            # 构建完整的prompt，确保人格prompt在最前面
+            # 构建完整的prompt - 人格prompt和替换后的模板prompt
             full_prompt = ""
             if persona_prompt:
                 full_prompt += f"{persona_prompt}\n\n"
             
             full_prompt += f"""用户昵称是'{vars_dict.get('nickname', '用户')}'。
 
-请按照以下模板结构为该用户生成今日运势内容：
+请按照以下模板为该用户生成今日运势内容，请直接按模板格式输出，不要包含额外的标记或说明：
 
 {formatted_template}
 
 注意：
-- 请将模板中的 [请根据以下要求生成过程描述] 部分替换为实际的过程描述
-- 请将模板中的 [请根据以下要求生成建议内容] 部分替换为实际的建议内容
-- 保持模板的其他格式不变"""
+- 请将🔮后面的内容替换为实际的占卜过程描述
+- 请将💬建议后面的内容替换为实际的建议内容
+- 保持模板的格式和表情符号不变"""
             
-            # 直接调用provider的text_chat方法，不使用session_id等会话管理参数
-            # 这样可以避免触发AstrBot的人格系统和会话管理
+            # 使用人格prompt和替换后的模板prompt请求llm
             response = await provider.text_chat(
                 prompt=full_prompt,
                 session_id=None,  # 不使用会话管理
@@ -255,23 +262,36 @@ class LLMManager:
             )
                     
             if response and response.completion_text:
-                # 解析返回的内容
-                content = response.completion_text
-                process_match = re.search(r'【过程】\s*(.+?)(?=【建议】|$)', content, re.DOTALL)
-                advice_match = re.search(r'【建议】\s*(.+?)$', content, re.DOTALL)
+                content = response.completion_text.strip()
+                logger.debug(f"[daily_fortune] LLM原始回复: {content}")
                 
-                process = process_match.group(1).strip() if process_match else "水晶球中浮现出神秘的光芒..."
-                advice = advice_match.group(1).strip() if advice_match else "保持乐观的心态，好运自然来。"
+                # 从回复中提取{process}和{advice}
+                # 尝试按行分割并识别🔮和💬行
+                lines = content.split('\n')
+                process = "水晶球中浮现出神秘的光芒..."
+                advice = "保持乐观的心态，好运自然来。"
                 
-                # 清理内容，移除可能的多余换行和空格
+                for line in lines:
+                    line = line.strip()
+                    if line.startswith('🔮'):
+                        # 提取🔮后面的内容作为过程
+                        process = line[2:].strip()
+                    elif line.startswith('💬'):
+                        # 提取💬后面的内容，去掉"建议："等前缀
+                        advice_content = line[2:].strip()
+                        if advice_content.startswith('建议：'):
+                            advice = advice_content[3:].strip()
+                        else:
+                            advice = advice_content
+                
+                # 清理内容并限制长度
                 process = re.sub(r'\s+', ' ', process).strip()
                 advice = re.sub(r'\s+', ' ', advice).strip()
                 
-                # 限制长度
                 process = process[:100] if len(process) > 100 else process
                 advice = advice[:100] if len(advice) > 100 else advice
                 
-                logger.debug(f"[daily_fortune] LLM生成成功 - 过程: {process[:20]}... 建议: {advice[:20]}...")
+                logger.debug(f"[daily_fortune] 提取结果 - 过程: {process[:20]}... 建议: {advice[:20]}...")
                 return process, advice
             else:
                 logger.warning("[daily_fortune] LLM返回空响应")
