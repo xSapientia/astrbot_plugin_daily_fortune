@@ -197,7 +197,7 @@ class CommandHandler:
             target_nickname = cached.get("nickname", target_nickname)
             
             # 构建查询模板，支持所有变量
-            query_template = self.config.get("templates", {}).get("query",
+            query_template = self.config.get("templates", {}).get("query_template",
                 "📌 今日人品\n{nickname}，今天已经查询过了哦~\n今日人品值: {jrrp}\n运势: {fortune} {femoji}")
                 
             # 准备变量字典
@@ -259,7 +259,7 @@ class CommandHandler:
             fortune, femoji = self.algorithm.get_fortune_info(jrrp)
             
             # 构建查询模板
-            query_template = self.config.get("templates", {}).get("query",
+            query_template = self.config.get("templates", {}).get("query_template",
                 "📌 今日人品\n{nickname}，今天已经查询过了哦~\n今日人品值: {jrrp}\n运势: {fortune} {femoji}")
                 
             # 准备变量字典
@@ -326,7 +326,7 @@ class CommandHandler:
             process, advice = await self.llm.generate_fortune_content(vars_dict)
             
             # 构建结果
-            result_template = self.config.get("templates", {}).get("random",
+            result_template = self.config.get("templates", {}).get("resault_template",
                 "🔮 {process}\n💎 人品值：{jrrp}\n✨ 运势：{fortune}\n💬 建议：{advice}")
                 
             result = result_template.format(
@@ -390,7 +390,7 @@ class CommandHandler:
             medals = ["🥇", "🥈", "🥉", "🏅", "🏅"]
             
         # 构建排行榜
-        rank_template = self.config.get("templates", {}).get("rank",
+        rank_template = self.config.get("templates", {}).get("rank_template",
             "{medal} {nickname}: {jrrp} ({fortune})")
             
         ranks = []
@@ -406,7 +406,7 @@ class CommandHandler:
             ranks.append(rank_line)
             
         # 构建完整排行榜
-        board_template = self.config.get("templates", {}).get("board",
+        board_template = self.config.get("templates", {}).get("rank_board_template",
             "📊【今日人品排行榜】{date}\n━━━━━━━━━━━━━━━\n{ranks}")
             
         result = board_template.format(
@@ -449,7 +449,7 @@ class CommandHandler:
             history_lines.append(f"{date}: {data['jrrp']} ({data['fortune']})")
             
         # 使用模板
-        history_template = self.config.get("templates", {}).get("history",
+        history_template = self.config.get("templates", {}).get("history_template",
             "📚 {nickname} 的人品历史记录\n{history}\n\n📊 统计信息:\n平均人品值: {avgjrrp}\n最高人品值: {maxjrrp}\n最低人品值: {minjrrp}")
             
         result = history_template.format(

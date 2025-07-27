@@ -100,12 +100,12 @@
     "description": "第三方LLM接口配置",
     "type": "object",
     "items": {
-      "api_key": {
+      "llm_api_key": {
         "description": "API密钥",
         "type": "string",
         "default": ""
       },
-      "url": {
+      "llm_url": {
         "description": "API地址",
         "type": "string",
         "default": "",
@@ -128,13 +128,13 @@
     "description": "LLM提示词配置",
     "type": "object",
     "items": {
-      "process": {
+      "process_prompt": {
         "description": "过程模拟提示词",
         "type": "text",
         "default": "模拟过程中不得包含{jrrp}和{fortune}\n---\n读取'user_id:{user_id}'相关信息，使用适当的称呼，模拟你使用水晶球缓慢复现的过程，50字以内",
         "hint": "支持变量: {user_id}, {nickname}, {card}, {title}, {jrrp}, {fortune}, {femoji}, {date}, {medals}, {jrrp_ranges}, {fortune_ranges}, {emoji_ranges}"
       },
-      "advice": {
+      "advice_prompt": {
         "description": "评语建议提示词",
         "type": "text",
         "default": "人品值分段为{jrrp_ranges}，对应运势是{fortune_ranges}\n{user_id}今日人品值{jrrp}\n评语或建议中不得包含{jrrp}和{fortune}\n---\n直接给出你的评语和建议，50字以内",
@@ -146,31 +146,31 @@
     "description": "显示模板配置",
     "type": "object",
     "items": {
-      "random": {
+      "resault_template": {
         "description": "首次查询结果模板",
         "type": "text",
         "default": "🔮 {process}\n💎 人品值：{jrrp}\n✨ 运势：{fortune}\n💬 建议：{advice}",
         "hint": "支持变量: {process}, {jrrp}, {fortune}, {advice}"
       },
-      "query": {
+      "query_template": {
         "description": "再次查询结果模板",
         "type": "text",
         "default": "📌 今日人品\n{nickname}，今天已经查询过了哦~\n今日人品值: {jrrp}\n运势: {fortune} {femoji}",
         "hint": "支持变量: {nickname}, {jrrp}, {fortune}, {femoji}"
       },
-      "rank": {
+      "rank_template": {
         "description": "排行榜条目模板",
         "type": "string",
         "default": "{medal} {nickname}: {jrrp} ({fortune})",
         "hint": "支持变量: {medal}, {nickname}, {jrrp}, {fortune}"
       },
-      "board": {
+      "rank_board_template": {
         "description": "排行榜整体模板",
         "type": "text",
         "default": "📊【今日人品排行榜】{date}\n━━━━━━━━━━━━━━━\n{ranks}",
         "hint": "支持变量: {date}, {ranks}"
       },
-      "history": {
+      "history_template": {
         "description": "历史记录模板",
         "type": "text",
         "default": "📚 {nickname} 的人品历史记录\n{history}\n\n📊 统计信息:\n平均人品值: {avgjrrp}\n最高人品值: {maxjrrp}\n最低人品值: {minjrrp}",

@@ -48,8 +48,8 @@ class LLMManager:
         else:
             # 使用第三方接口配置
             api_config = self.config.get("llm_api", {})
-            if api_config.get("api_key") and api_config.get("url"):
-                logger.info(f"[daily_fortune] 配置了第三方接口: {api_config['url']}")
+            if api_config.get("llm_api_key") and api_config.get("llm_url"):
+                logger.info(f"[daily_fortune] 配置了第三方接口: {api_config['llm_url']}")
                 # 创建自定义provider
                 asyncio.create_task(self._test_third_party_api(api_config))
                 self.provider = None
@@ -109,7 +109,7 @@ class LLMManager:
             import aiohttp
             
             # 智能处理URL
-            url = api_config['url'].rstrip('/')
+            url = api_config['llm_url'].rstrip('/')
             if not url.endswith('/chat/completions'):
                 if url.endswith('/v1'):
                     url += '/chat/completions'
@@ -117,7 +117,7 @@ class LLMManager:
                     url += '/v1/chat/completions'
                     
             headers = {
-                'Authorization': f"Bearer {api_config['api_key']}",
+                'Authorization': f"Bearer {api_config['llm_api_key']}",
                 'Content-Type': 'application/json'
             }
             
@@ -130,7 +130,7 @@ class LLMManager:
             async with aiohttp.ClientSession() as session:
                 async with session.post(url, headers=headers, json=data, timeout=10) as resp:
                     if resp.status == 200:
-                        logger.info(f"[daily_fortune] 第三方API连接测试成功: {api_config['url']}")
+                        logger.info(f"[daily_fortune] 第三方API连接测试成功: {api_config['llm_url']}")
                     else:
                         text = await resp.text()
                         logger.warning(f"[daily_fortune] 第三方API连接测试失败: {resp.status} - {text}")
@@ -205,15 +205,27 @@ class LLMManager:
                             logger.debug(f"[daily_fortune] 使用默认人格: {default_persona_name}")
                             break
                             
-            # 构建提示词
-            process_prompt = self.config.get("prompts", {}).get("process",
+            # 获取首次查询结果模板
+            result_template = self.config.get("templates", {}).get("resault_template",
+                "🔮 {process}\n💎 人品值：{jrrp}\n✨ 运势：{fortune}\n💬 建议：{advice}")
+            
+            # 构建过程和建议的提示词
+            process_prompt = self.config.get("prompts", {}).get("process_prompt",
                 "模拟过程中不得包含{jrrp}和{fortune}\n---\n读取'user_id:{user_id}'相关信息，使用适当的称呼，模拟你使用水晶球缓慢复现的过程，50字以内")
-            advice_prompt = self.config.get("prompts", {}).get("advice",
+            advice_prompt = self.config.get("prompts", {}).get("advice_prompt",
                 "人品值分段为{jrrp_ranges}，对应运势是{fortune_ranges}\n{user_id}今日人品值{jrrp}\n评语或建议中不得包含{jrrp}和{fortune}\n---\n直接给出你的评语和建议，50字以内")
                 
-            # 格式化提示词
-            process_prompt = process_prompt.format(**vars_dict)
-            advice_prompt = advice_prompt.format(**vars_dict)
+            # 格式化过程和建议提示词
+            formatted_process_prompt = process_prompt.format(**vars_dict)
+            formatted_advice_prompt = advice_prompt.format(**vars_dict)
+            
+            # 创建包含格式化提示词的变量字典
+            template_vars = vars_dict.copy()
+            template_vars['process'] = f"[请根据以下要求生成过程描述]\n{formatted_process_prompt}"
+            template_vars['advice'] = f"[请根据以下要求生成建议内容]\n{formatted_advice_prompt}"
+            
+            # 使用模板格式化最终prompt
+            formatted_template = result_template.format(**template_vars)
             
             # 构建完整的prompt，确保人格prompt在最前面
             full_prompt = ""
@@ -221,18 +233,15 @@ class LLMManager:
                 full_prompt += f"{persona_prompt}\n\n"
             
             full_prompt += f"""用户昵称是'{vars_dict.get('nickname', '用户')}'。
-请为该用户生成今日运势内容，包含两部分：
 
-1. 【过程】{process_prompt}
-2. 【建议】{advice_prompt}
+请按照以下模板结构为该用户生成今日运势内容：
 
-请严格按照以下格式回复，使用【过程】和【建议】作为分隔标记：
+{formatted_template}
 
-【过程】
-（在这里写过程描述）
-
-【建议】
-（在这里写建议内容）"""
+注意：
+- 请将模板中的 [请根据以下要求生成过程描述] 部分替换为实际的过程描述
+- 请将模板中的 [请根据以下要求生成建议内容] 部分替换为实际的建议内容
+- 保持模板的其他格式不变"""
             
             # 直接调用provider的text_chat方法，不使用session_id等会话管理参数
             # 这样可以避免触发AstrBot的人格系统和会话管理
