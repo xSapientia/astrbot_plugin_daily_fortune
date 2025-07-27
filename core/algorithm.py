@@ -57,17 +57,17 @@ class FortuneAlgorithm:
         jrrp_ranges_config = self._parse_ranges_string(jrrp_ranges_str)
         
         # 获取配置的运势描述字符串
-        fortune_names_str = self.config.get("fortune_names", "极凶, 大凶, 凶, 小凶, 末吉, 小吉, 中吉, 大吉, 极吉")
-        fortune_names_config = self._parse_list_string(fortune_names_str)
+        fortune_ranges_str = self.config.get("fortune_ranges", "极凶, 大凶, 凶, 小凶, 末吉, 小吉, 中吉, 大吉, 极吉")
+        fortune_ranges_config = self._parse_list_string(fortune_ranges_str)
         
         # 获取配置的emoji字符串
-        fortune_emojis_str = self.config.get("fortune_emojis", "💀, 😨, 😰, 😟, 😐, 🙂, 😊, 😄, 🤩")
-        fortune_emojis_config = self._parse_list_string(fortune_emojis_str)
+        emoji_ranges_str = self.config.get("emoji_ranges", "💀, 😨, 😰, 😟, 😐, 🙂, 😊, 😄, 🤩")
+        emoji_ranges_config = self._parse_list_string(emoji_ranges_str)
         
         # 保存配置字符串供外部使用
         self.jrrp_ranges_str = jrrp_ranges_str
-        self.fortune_names_str = fortune_names_str
-        self.fortune_emojis_str = fortune_emojis_str
+        self.fortune_ranges_str = fortune_ranges_str
+        self.emoji_ranges_str = emoji_ranges_str
         
         # 构建运势等级映射
         self.fortune_levels = {}
@@ -78,8 +78,8 @@ class FortuneAlgorithm:
                 max_val = int(range_config[1])
                 
                 # 获取对应的运势描述和emoji，如果超出范围则使用默认值
-                fortune_name = fortune_names_config[i] if i < len(fortune_names_config) else "未知"
-                fortune_emoji = fortune_emojis_config[i] if i < len(fortune_emojis_config) else "❓"
+                fortune_name = fortune_ranges_config[i] if i < len(fortune_ranges_config) else "未知"
+                fortune_emoji = emoji_ranges_config[i] if i < len(emoji_ranges_config) else "❓"
                 
                 self.fortune_levels[(min_val, max_val)] = (fortune_name, fortune_emoji)
                 
@@ -195,6 +195,6 @@ class FortuneAlgorithm:
         """
         return {
             "jrrp_ranges": self.jrrp_ranges_str,
-            "fortune_names": self.fortune_names_str,
-            "fortune_emojis": self.fortune_emojis_str
+            "fortune_ranges": self.fortune_ranges_str,
+            "emoji_ranges": self.emoji_ranges_str
         }
