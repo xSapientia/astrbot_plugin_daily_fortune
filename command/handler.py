@@ -296,10 +296,14 @@ class CommandHandler:
             result = query_template.format(**vars_dict)
             
             # 如果配置启用了显示缓存结果
-            if self.config.get("show_cached_result", True) and "result" in cached:
+            if self.config.get("show_cached_result", True):
                 replay_template = self.config.get("replay_template", "-----以下为{card}的今日运势测算场景还原-----")
                 replay_text = replay_template.format(**vars_dict)
-                result += f"\n\n{replay_text}\n{cached['result']}"
+                
+                # 优先使用pure_result（不包含tip_template），如果没有则使用result
+                replay_content = cached.get("pure_result", cached.get("result", ""))
+                if replay_content:
+                    result += f"\n\n{replay_text}\n{replay_content}"
                 
             yield event.plain_result(result)
             return
