@@ -38,17 +38,21 @@ class UserInfoManager:
         
         # 获取基础信息
         if not target_user_id:
-            # 获取发送者信息
-            nickname = event.get_sender_name() or f"用户{user_id[-6:]}"
-            return {
-                "user_id": user_id,
-                "nickname": nickname,
-                "card": nickname,
-                "title": "无",
-                "sex": "unknown",
-                "platform": event.get_platform_name(),
-                "group_id": event.get_group_id() or ""
-            }
+            # 获取发送者信息 - 需要调用API获取详细信息
+            if event.get_platform_name() == "aiocqhttp":
+                return await self._get_aiocqhttp_user_info(event, user_id)
+            else:
+                # 其他平台使用基础信息
+                nickname = event.get_sender_name() or f"用户{user_id[-6:]}"
+                return {
+                    "user_id": user_id,
+                    "nickname": nickname,
+                    "card": nickname,
+                    "title": "无",
+                    "sex": "unknown",
+                    "platform": event.get_platform_name(),
+                    "group_id": event.get_group_id() or ""
+                }
         
         # 获取@用户的详细信息
         if event.get_platform_name() == "aiocqhttp":
