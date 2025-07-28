@@ -63,14 +63,16 @@ class CommandHandler:
     - jrrprank
 
 📚 历史记录：
-• 查看历史记录
+• 查看自己的历史记录
     - jrrp history
     - jrrp hi
     - jrrphistory
     - jrrphi
 • 查看他人历史记录
     - jrrp history @某人
+    - jrrp hi @某人
     - jrrphistory @某人
+    - jrrphi @某人
 
 🗑️ 数据管理：
 • 删除除今日外的历史记录
@@ -80,13 +82,15 @@ class CommandHandler:
     - jrrpdel --confirm
 
 ⚙️ 管理员指令：
-• 初始化今日记录
-    - jrrp init --confirm
+• 初始化自己今日记录
     - jrrp initialize --confirm
-    - jrrpinit --confirm
+    - jrrp init --confirm
     - jrrpinitialize --confirm
+    - jrrpinit --confirm
 • 初始化他人今日记录
+    - jrrp initialize @某人 --confirm
     - jrrp init @某人 --confirm
+    - jrrpinitialize @某人 --confirm
     - jrrpinit @某人 --confirm
 • 重置所有数据
     - jrrp reset --confirm
@@ -355,7 +359,7 @@ class CommandHandler:
             self.storage.remove_processing_user(user_id)
             
     async def handle_jrrprank(self, event: AstrMessageEvent):
-        """处理 /jrrprank 指令"""
+        """处理 /jrrprank 指令 - 群聊内成员排行榜"""
         # 防止触发LLM调用
         event.should_call_llm(False)
         
@@ -364,6 +368,7 @@ class CommandHandler:
             return
             
         today = self.algorithm.get_today_key()
+        current_group_id = event.get_group_id()
         
         # 获取今日所有运势数据
         today_fortunes = self.storage.get_today_all_fortunes(today)
@@ -371,15 +376,32 @@ class CommandHandler:
             yield event.plain_result("今天还没有人查询过人品值呢~")
             return
             
-        # 获取群成员的人品值
+        # 过滤出当前群聊内的成员数据
         group_data = []
         for user_id, data in today_fortunes.items():
-            group_data.append({
-                "user_id": user_id,
-                "nickname": data.get("nickname", "未知"),
-                "jrrp": data["jrrp"],
-                "fortune": data.get("fortune", "未知")
-            })
+            # 检查是否是当前群聊的成员（基于用户信息获取）
+            try:
+                user_info = await self.user_info.get_user_info(event, user_id)
+                # 如果能成功获取到该用户在当前群的信息，说明是群成员
+                if user_info.get("group_id") == current_group_id or not user_info.get("group_id"):
+                    group_data.append({
+                        "user_id": user_id,
+                        "nickname": user_info.get("nickname", data.get("nickname", "未知")),
+                        "jrrp": data["jrrp"],
+                        "fortune": data.get("fortune", "未知")
+                    })
+            except Exception:
+                # 如果获取用户信息失败，使用缓存的昵称
+                group_data.append({
+                    "user_id": user_id,
+                    "nickname": data.get("nickname", "未知"),
+                    "jrrp": data["jrrp"],
+                    "fortune": data.get("fortune", "未知")
+                })
+            
+        if not group_data:
+            yield event.plain_result("本群今天还没有人查询过人品值呢~")
+            return
             
         # 排序
         group_data.sort(key=lambda x: x["jrrp"], reverse=True)
@@ -407,7 +429,7 @@ class CommandHandler:
             
         # 构建完整排行榜
         board_template = self.config.get("templates", {}).get("rank_board_template",
-            "📊【今日人品排行榜】{date}\n━━━━━━━━━━━━━━━\n{ranks}")
+            "📊【本群今日人品排行榜】{date}\n━━━━━━━━━━━━━━━\n{ranks}")
             
         result = board_template.format(
             date=today,
@@ -432,33 +454,38 @@ class CommandHandler:
             target_user_info = await self.user_info.get_user_info(event, target_user_id)
             target_nickname = target_user_info["nickname"]
             
-        # 获取历史天数配置
-        history_days = self.config.get("history_days", 30)
-        user_history = self.storage.get_user_history(target_user_id, history_days)
+        # 获取完整的历史记录（用于统计）
+        full_user_history = self.storage.get_user_history(target_user_id, 999)  # 获取所有记录用于统计
         
-        if not user_history:
+        if not full_user_history:
             yield event.plain_result(f"{target_nickname} 还没有任何人品记录呢~")
             return
             
-        # 获取统计数据
+        # 获取统计数据（基于全部记录）
         stats = self.storage.get_user_statistics(target_user_id)
+        total_count = len(full_user_history)
         
-        # 构建历史记录列表
+        # 获取配置的显示条数
+        display_count = self.config.get("history_days", 10)
+        if display_count > total_count:
+            display_count = total_count
+            
+        # 构建历史记录列表（显示最近的记录）
         history_lines = []
-        for date, data in list(user_history.items())[:10]:  # 只显示最近10条
+        displayed_items = list(full_user_history.items())[:display_count]
+        
+        for date, data in displayed_items:
             history_lines.append(f"{date}: {data['jrrp']} ({data['fortune']})")
             
-        # 使用模板
-        history_template = self.config.get("templates", {}).get("history_template",
-            "📚 {nickname} 的人品历史记录\n{history}\n\n📊 统计信息:\n平均人品值: {avgjrrp}\n最高人品值: {maxjrrp}\n最低人品值: {minjrrp}")
+        # 构建显示内容
+        history_content = "\n".join(history_lines)
+        
+        # 如果显示数量少于总数量，添加...
+        if display_count < total_count:
+            history_content += "\n..."
             
-        result = history_template.format(
-            nickname=target_nickname,
-            history="\n".join(history_lines),
-            avgjrrp=stats["avg"],
-            maxjrrp=stats["max"],
-            minjrrp=stats["min"]
-        )
+        # 构建完整结果
+        result = f"📚 {target_nickname} 的人品历史记录\n[显示 {display_count}/{total_count}]\n{history_content}\n\n📊 统计信息:\n平均人品值: {stats['avg']}\n最高人品值: {stats['max']}\n最低人品值: {stats['min']}"
         
         yield event.plain_result(result)
         
