@@ -57,13 +57,13 @@
   "detecting_message": {
     "description": "开始检测提示文本",
     "type": "string",
-    "default": "神秘的能量汇聚，{nickname}，你的命运即将显现，正在祈祷中...",
+    "default": "神秘的能量汇聚，{card}，你的命运即将显现，正在祈祷中...",
     "hint": "支持变量: {nickname}。首次查询时显示此消息"
   },
   "processing_message": {
     "description": "正在检测中提示文本",
     "type": "string",
-    "default": "已经在努力获取 {nickname} 的命运了哦~",
+    "default": "已经在努力获取 {card} 的命运了哦~",
     "hint": "支持变量: {nickname}。当用户在生成结果期间重复调用时显示此消息"
   },
   "show_cached_result": {
@@ -82,12 +82,12 @@
     "description": "@查询他人时场景还原提示模板",
     "type": "string",
     "default": "-----以下为{target_card}的今日运势测算场景还原-----",
-    "hint": "支持变量: {target_nickname}, {target_card}, {target_title}, {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji} 等所有变量"
+    "hint": "支持变量: {target_card}, {target_card}, {target_title}, {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji} 等所有变量"
   },
   "others_not_queried_message": {
     "description": "@查询他人但对方未查询时的提示信息",
     "type": "string",
-    "default": "{target_nickname} 今天还没有查询过人品值呢~",
+    "default": "{target_card} 今天还没有查询过人品值呢~",
         "hint": "支持变量: {target_nickname}, {target_user_id}, {target_card}, {target_title}, {sender_nickname}, {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji}, {process}, {advice}, {avgjrrp}, {maxjrrp}, {minjrrp}, {ranks}, {medal}, {medals}, {ranges_jrrp}, {ranges_fortune}, {ranges_emoji}"
   },
   "history_display_count": {
@@ -143,7 +143,7 @@
       "process_prompt": {
         "description": "过程模拟提示词",
         "type": "text",
-        "default": "读取'user_id:{user_id}'相关信息，以对其适当的称呼开头，模拟你使用水晶球缓慢复现的过程，50字以内",
+        "default": "模拟你使用水晶球缓慢显现的过程，50字以内",
         "hint": "支持变量: {user_id}, {nickname}, {card}, {title}, {jrrp}, {fortune}, {femoji}, {date}, {medals}, {ranges_jrrp}, {ranges_fortune}, {ranges_emoji}"
       },
       "advice_prompt": {
@@ -179,13 +179,13 @@
       "query_template": {
         "description": "再次查询结果模板",
         "type": "text",
-        "default": "📌 今日人品\n{card}，今天已经查询过了哦~\n今日人品值: {jrrp}\n运势: {fortune} {femoji}",
+        "default": "📌 今日人品\n{card}，今天已经查询过了哦~",
         "hint": "支持变量: {nickname}, {jrrp}, {fortune}, {femoji}"
       },
       "rank_template": {
         "description": "排行榜条目模板",
         "type": "string",
-        "default": "{medal} {nickname}: {jrrp} ({fortune})",
+        "default": "{medal} {card}: {jrrp} ({fortune})",
         "hint": "支持变量: {medal}, {nickname}, {jrrp}, {fortune}"
       },
       "rank_board_template": {
@@ -197,7 +197,7 @@
       "history_template": {
         "description": "历史记录模板",
         "type": "text",
-        "default": "📚 {nickname} 的人品历史记录\n{history}\n\n📊 统计信息:\n平均人品值: {avgjrrp}\n最高人品值: {maxjrrp}\n最低人品值: {minjrrp}",
+        "default": "📚 {card} 的人品历史记录\n{history}\n\n📊 统计信息:\n平均人品值: {avgjrrp}\n最高人品值: {maxjrrp}\n最低人品值: {minjrrp}",
         "hint": "支持变量: {nickname}, {history}, {avgjrrp}, {maxjrrp}, {minjrrp}"
       }
     }

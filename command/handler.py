@@ -204,7 +204,7 @@ class CommandHandler:
             
             # 构建查询模板，支持所有变量
             query_template = self.config.get("templates", {}).get("query_template",
-                "📌 今日人品\n{nickname}，今天已经查询过了哦~\n今日人品值: {jrrp}\n运势: {fortune} {femoji}")
+                "📌 今日人品\n{card}，今天已经查询过了哦~")
                 
             # 准备变量字典
             vars_dict = {
@@ -255,7 +255,7 @@ class CommandHandler:
             event.should_call_llm(False)
             event.stop_event()
             processing_msg = self.config.get("processing_message",
-                "已经在努力获取 {nickname} 的命运了哦~")
+                "已经在努力获取 {card} 的命运了哦~")
             yield event.plain_result(processing_msg.format(nickname=nickname))
             return
             
@@ -270,7 +270,7 @@ class CommandHandler:
             
             # 构建查询模板
             query_template = self.config.get("templates", {}).get("query_template",
-                "📌 今日人品\n{nickname}，今天已经查询过了哦~\n今日人品值: {jrrp}\n运势: {fortune} {femoji}")
+                "📌 今日人品\n{card}，今天已经查询过了哦~")
                 
             # 准备变量字典
             vars_dict = {
@@ -311,7 +311,7 @@ class CommandHandler:
         try:
             # 显示检测中消息
             detecting_msg = self.config.get("detecting_message",
-                "神秘的能量汇聚，{nickname}，你的命运即将显现，正在祈祷中...")
+                "神秘的能量汇聚，{card}，你的命运即将显现，正在祈祷中...")
             yield event.plain_result(detecting_msg.format(nickname=nickname))
             
             # 计算人品值
@@ -406,7 +406,7 @@ class CommandHandler:
             
         # 构建排行榜
         rank_template = self.config.get("templates", {}).get("rank_template",
-            "{medal} {nickname}: {jrrp} ({fortune})")
+            "{medal} {card}: {jrrp} ({fortune})")
             
         ranks = []
         
@@ -415,6 +415,7 @@ class CommandHandler:
             rank_line = rank_template.format(
                 medal=medal,
                 nickname=user["nickname"],
+                card=user.get("card", ""),
                 jrrp=user["jrrp"],
                 fortune=user["fortune"]
             )
@@ -595,11 +596,13 @@ class CommandHandler:
                         if user_id in member_ids:
                             # 从群成员列表中找到对应的详细信息
                             member_info = next((m for m in group_members if str(m.get("user_id")) == user_id), {})
-                            nickname = member_info.get("card") or member_info.get("nickname") or data.get("nickname", "未知")
+                            card = member_info.get("card", "") or member_info.get("nickname") or data.get("nickname", "未知")
+                            nickname = member_info.get("nickname") or data.get("nickname", "未知")
                             
                             group_data.append({
                                 "user_id": user_id,
                                 "nickname": nickname,
+                                "card": card,
                                 "jrrp": data["jrrp"],
                                 "fortune": data.get("fortune", "未知")
                             })
@@ -635,10 +638,12 @@ class CommandHandler:
                             user_id=int(user_id), group_id=int(current_group_id)
                         )
                         # 如果API调用成功，说明是群成员
-                        nickname = member_info.get("card") or member_info.get("nickname") or data.get("nickname", "未知")
+                        card = member_info.get("card", "") or member_info.get("nickname") or data.get("nickname", "未知")
+                        nickname = member_info.get("nickname") or data.get("nickname", "未知")
                         group_data.append({
                             "user_id": user_id,
                             "nickname": nickname,
+                            "card": card,
                             "jrrp": data["jrrp"],
                             "fortune": data.get("fortune", "未知")
                         })
