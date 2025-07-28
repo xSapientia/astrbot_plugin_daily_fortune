@@ -17,7 +17,7 @@ from .command import CommandHandler
     "astrbot_plugin_daily_fortune",
     "xSapientia",
     "每日人品值和运势查询插件，支持排行榜和历史记录",
-    "0.1.1",
+    "0.1.2",
     "https://github.com/xSapientia/astrbot_plugin_daily_fortune"
 )
 class DailyFortunePlugin(Star):

@@ -1,6 +1,6 @@
 # AstrBot 每日人品插件 (Daily Fortune)
 
-[![version](https://img.shields.io/badge/version-0.1.1-blue.svg)](https://github.com/xSapientia/astrbot_plugin_daily_fortune)
+[![version](https://img.shields.io/badge/version-0.1.2-blue.svg)](https://github.com/xSapientia/astrbot_plugin_daily_fortune)
 [![license](https://img.shields.io/badge/license-MIT-green.svg)](https://github.com/xSapientia/astrbot_plugin_daily_fortune/blob/main/LICENSE)
 [![platform](https://img.shields.io/badge/AstrBot-%3E%3D3.4.0-orange.svg)](https://github.com/AstrBotDevs/AstrBot)
 
@@ -128,6 +128,24 @@
 - **特殊变量**：`{target_nickname}`, `{target_user_id}`, `{sender_nickname}` (仅在特定场景)
 
 ## 🔄 更新日志
+
+-   **v0.1.2** (2025-07-28)
+    -   **【重构】** 用户信息获取模块重构：
+        -   参考GitHub优秀插件实践，采用直接API调用方案
+        -   移除复杂的tip解析逻辑，使用aiocqhttp API直接获取用户信息
+        -   代码从400+行简化到120行，专注核心功能
+    -   **【修复】** 排行榜功能优化：
+        -   修复jrrprank显示其他群聊用户的问题
+        -   使用`get_group_member_info`API精确检查群成员身份
+        -   确保排行榜只显示当前群内测过人品的成员
+    -   **【优化】** 历史记录功能完善：
+        -   统计数据基于全部历史记录计算，显示条数仅影响展示
+        -   添加条数统计组件：`[显示4/26]`格式
+        -   当显示数量<总数量时，末尾显示`...`省略号
+    -   **【完善】** 帮助文档更新：
+        -   补全所有指令的别名说明
+        -   明确@某人功能的支持范围
+        -   优化指令分类和描述
 
 -   **v0.1.1** (2025-07-27)
     -   **【重构】** 代码模块化重构，提升代码质量和可维护性：
