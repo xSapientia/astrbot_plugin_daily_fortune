@@ -163,20 +163,15 @@ class CommandHandler:
             # 检查对方是否已经查询过
             cached = self.storage.get_today_fortune(today, target_user_id)
             if not cached:
-                # 使用配置的未查询提示信息，支持所有变量
+                # 使用配置的未查询提示信息，有@对象时{card}{nickname}{title}显示被@用户信息
                 not_queried_template = self.config.get("others_not_queried_message",
-                    "{target_card} 今天还没有查询过人品值呢~")
+                    "{card} 今天还没有查询过人品值呢~")
                     
-                # 准备变量字典，包含所有可能的变量
+                # 准备变量字典，有@对象时{card}{nickname}{title}为被@用户信息
                 vars_dict = {
-                    "target_nickname": target_nickname,
-                    "target_user_id": target_user_id,
-                    "target_card": target_user_info["card"],
-                    "target_title": target_user_info["title"],
-                    "sender_nickname": sender_nickname,
-                    "nickname": target_nickname,  # 兼容原有变量
-                    "card": target_user_info["card"],
-                    "title": target_user_info["title"],
+                    "nickname": target_nickname,  # 被@用户昵称
+                    "card": target_user_info["card"] or target_nickname,  # 被@用户群名片，fallback到昵称
+                    "title": target_user_info["title"],  # 被@用户头衔
                     "date": today,
                     # 由于对方未查询，这些值为空或默认值
                     "jrrp": "未知",
@@ -202,26 +197,21 @@ class CommandHandler:
             fortune, femoji = self.algorithm.get_fortune_info(jrrp)
             target_nickname = cached.get("nickname", target_nickname)
             
-            # 构建查询模板，支持所有变量
+            # 构建查询模板，有@对象时{card}{nickname}{title}显示被@用户信息
             query_template = self.config.get("templates", {}).get("query_template",
                 "📌 今日人品\n{card}，今天已经查询过了哦~")
                 
-            # 准备变量字典
+            # 准备变量字典，有@对象时{card}{nickname}{title}为被@用户信息
             vars_dict = {
-                "nickname": target_nickname,
-                "card": target_user_info["card"],
-                "title": target_user_info["title"],
+                "nickname": target_nickname,  # 被@用户昵称
+                "card": target_user_info["card"] or target_nickname,  # 被@用户群名片，fallback到昵称
+                "title": target_user_info["title"],  # 被@用户头衔
                 "jrrp": jrrp,
                 "fortune": fortune,
                 "femoji": femoji,
                 "date": today,
                 "process": cached.get("process", ""),
                 "advice": cached.get("advice", ""),
-                "target_nickname": target_nickname,
-                "target_user_id": target_user_id,
-                "target_card": target_user_info["card"],
-                "target_title": target_user_info["title"],
-                "sender_nickname": sender_nickname,
                 # 统计信息（如果需要的话）
                 "avgjrrp": jrrp,  # 单个用户的平均值就是当前值
                 "maxjrrp": jrrp,
@@ -236,7 +226,7 @@ class CommandHandler:
             
             # 检查是否显示对方的缓存完整结果
             if self.config.get("show_others_cached_result", False) and "result" in cached:
-                replay_template = self.config.get("replay_template", "-----以下为{target_card}的今日运势测算场景还原-----")
+                replay_template = self.config.get("replay_template", "-----以下为{card}的今日运势测算场景还原-----")
                 replay_text = replay_template.format(**vars_dict)
                 result += f"\n\n{replay_text}\n{cached['result']}"
                 
@@ -256,7 +246,13 @@ class CommandHandler:
             event.stop_event()
             processing_msg = self.config.get("processing_message",
                 "已经在努力获取 {card} 的命运了哦~")
-            yield event.plain_result(processing_msg.format(nickname=nickname))
+            # 无@对象时{card}{nickname}{title}为发送者信息
+            vars_dict = {
+                "nickname": nickname, 
+                "card": user_info["card"] or nickname,
+                "title": user_info["title"]
+            }
+            yield event.plain_result(processing_msg.format(**vars_dict))
             return
             
         # 检查是否已经查询过
@@ -312,7 +308,13 @@ class CommandHandler:
             # 显示检测中消息
             detecting_msg = self.config.get("detecting_message",
                 "神秘的能量汇聚，{card}，你的命运即将显现，正在祈祷中...")
-            yield event.plain_result(detecting_msg.format(nickname=nickname))
+            # 无@对象时{card}{nickname}{title}为发送者信息
+            vars_dict = {
+                "nickname": nickname, 
+                "card": user_info["card"] or nickname,
+                "title": user_info["title"]
+            }
+            yield event.plain_result(detecting_msg.format(**vars_dict))
             
             # 计算人品值
             jrrp = self.algorithm.calculate_jrrp(user_id)
@@ -448,11 +450,19 @@ class CommandHandler:
             target_user_info = await self.user_info.get_user_info(event, target_user_id)
             target_nickname = target_user_info["nickname"]
             
+        # 获取用户信息以支持{card}变量（有@对象时显示被@用户信息）
+        if target_user_id != event.get_sender_id():
+            target_user_info = await self.user_info.get_user_info(event, target_user_id)
+            display_card = target_user_info["card"] or target_nickname
+        else:
+            sender_info = await self.user_info.get_user_info(event)
+            display_card = sender_info["card"] or target_nickname
+            
         # 获取完整的历史记录（用于统计）
         full_user_history = self.storage.get_user_history(target_user_id, 999)  # 获取所有记录用于统计
         
         if not full_user_history:
-            yield event.plain_result(f"{target_card} 还没有任何人品记录呢~")
+            yield event.plain_result(f"{display_card} 还没有任何人品记录呢~")
             return
             
         # 获取统计数据（基于全部记录）
@@ -478,15 +488,23 @@ class CommandHandler:
         if display_count < total_count:
             history_content += "\n..."
             
-        # 构建完整结果
-        # 获取target用户信息以支持{target_card}变量
-        if target_user_id != event.get_sender_id():
-            target_user_info = await self.user_info.get_user_info(event, target_user_id)
-            target_card = target_user_info["card"] or target_nickname
-        else:
-            target_card = target_nickname
+        # 使用插件配置的历史记录模板
+        history_template = self.config.get("templates", {}).get("history_template",
+            "📚 {card} 的人品历史记录\n[显示 {display_count}/{total_count}]\n{history_content}\n\n📊 统计信息:\n平均人品值: {avgjrrp}\n最高人品值: {maxjrrp}\n最低人品值: {minjrrp}")
             
-        result = f"📚 {target_card} 的人品历史记录\n[显示 {display_count}/{total_count}]\n{history_content}\n\n📊 统计信息:\n平均人品值: {stats['avg']}\n最高人品值: {stats['max']}\n最低人品值: {stats['min']}"
+        # 准备变量字典（有@对象时{card}{nickname}为被@用户信息）
+        vars_dict = {
+            "nickname": target_nickname,
+            "card": display_card,
+            "display_count": display_count,
+            "total_count": total_count,
+            "history_content": history_content,
+            "avgjrrp": stats['avg'],
+            "maxjrrp": stats['max'],
+            "minjrrp": stats['min']
+        }
+        
+        result = history_template.format(**vars_dict)
         
         yield event.plain_result(result)
         

@@ -81,14 +81,14 @@
   "replay_template": {
     "description": "@查询他人时场景还原提示模板",
     "type": "string",
-    "default": "-----以下为{target_card}的今日运势测算场景还原-----",
-    "hint": "支持变量: {target_card}, {target_card}, {target_title}, {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji} 等所有变量"
+    "default": "-----以下为{card}的今日运势测算场景还原-----",
+    "hint": "支持变量: {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji} 等所有变量。注意：有@对象时{card}为被@用户群名片，{nickname}为被@用户昵称；无@对象时为发送者信息"
   },
   "others_not_queried_message": {
     "description": "@查询他人但对方未查询时的提示信息",
     "type": "string",
-    "default": "{target_card} 今天还没有查询过人品值呢~",
-        "hint": "支持变量: {target_nickname}, {target_user_id}, {target_card}, {target_title}, {sender_nickname}, {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji}, {process}, {advice}, {avgjrrp}, {maxjrrp}, {minjrrp}, {ranks}, {medal}, {medals}, {ranges_jrrp}, {ranges_fortune}, {ranges_emoji}"
+    "default": "{card} 今天还没有查询过人品值呢~",
+    "hint": "支持变量: {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji}, {process}, {advice}, {avgjrrp}, {maxjrrp}, {minjrrp}, {ranks}, {medal}, {medals}, {ranges_jrrp}, {ranges_fortune}, {ranges_emoji}。注意：有@对象时{card}为被@用户群名片，{nickname}为被@用户昵称"
   },
   "history_display_count": {
     "description": "历史记录显示数量",
@@ -197,8 +197,8 @@
       "history_template": {
         "description": "历史记录模板",
         "type": "text",
-        "default": "📚 {card} 的人品历史记录\n{history}\n\n📊 统计信息:\n平均人品值: {avgjrrp}\n最高人品值: {maxjrrp}\n最低人品值: {minjrrp}",
-        "hint": "支持变量: {nickname}, {history}, {avgjrrp}, {maxjrrp}, {minjrrp}"
+        "default": "📚 {card} 的人品历史记录\n[显示 {display_count}/{total_count}]\n{history_content}\n\n📊 统计信息:\n平均人品值: {avgjrrp}\n最高人品值: {maxjrrp}\n最低人品值: {minjrrp}",
+        "hint": "支持变量: {nickname}, {card}, {display_count}, {total_count}, {history_content}, {avgjrrp}, {maxjrrp}, {minjrrp}"
       }
     }
   },
