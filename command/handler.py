@@ -165,12 +165,14 @@ class CommandHandler:
             if not cached:
                 # 使用配置的未查询提示信息，支持所有变量
                 not_queried_template = self.config.get("others_not_queried_message",
-                    "{target_nickname} 今天还没有查询过人品值呢~")
+                    "{target_card} 今天还没有查询过人品值呢~")
                     
                 # 准备变量字典，包含所有可能的变量
                 vars_dict = {
                     "target_nickname": target_nickname,
                     "target_user_id": target_user_id,
+                    "target_card": target_user_info["card"],
+                    "target_title": target_user_info["title"],
                     "sender_nickname": sender_nickname,
                     "nickname": target_nickname,  # 兼容原有变量
                     "card": target_user_info["card"],
@@ -217,6 +219,8 @@ class CommandHandler:
                 "advice": cached.get("advice", ""),
                 "target_nickname": target_nickname,
                 "target_user_id": target_user_id,
+                "target_card": target_user_info["card"],
+                "target_title": target_user_info["title"],
                 "sender_nickname": sender_nickname,
                 # 统计信息（如果需要的话）
                 "avgjrrp": jrrp,  # 单个用户的平均值就是当前值
@@ -232,7 +236,9 @@ class CommandHandler:
             
             # 检查是否显示对方的缓存完整结果
             if self.config.get("show_others_cached_result", False) and "result" in cached:
-                result += f"\n\n-----以下为{target_nickname}的今日运势测算场景还原-----\n{cached['result']}"
+                replay_template = self.config.get("replay_template", "-----以下为{target_card}的今日运势测算场景还原-----")
+                replay_text = replay_template.format(**vars_dict)
+                result += f"\n\n{replay_text}\n{cached['result']}"
                 
             yield event.plain_result(result)
             return
@@ -340,6 +346,12 @@ class CommandHandler:
                 advice=advice
             )
             
+            # 检查是否需要添加提示模板
+            if self.config.get("templates", {}).get("enable_tip_template", False):
+                tip_template = self.config.get("templates", {}).get("tip_template", "-----以下为{card}的今日运势测算结果-----")
+                tip_text = tip_template.format(**vars_dict)
+                result = f"{tip_text}\n{result}"
+            
             # 缓存结果（包含群聊信息）
             fortune_data = {
                 "jrrp": jrrp,
@@ -439,7 +451,7 @@ class CommandHandler:
         full_user_history = self.storage.get_user_history(target_user_id, 999)  # 获取所有记录用于统计
         
         if not full_user_history:
-            yield event.plain_result(f"{target_nickname} 还没有任何人品记录呢~")
+            yield event.plain_result(f"{target_card} 还没有任何人品记录呢~")
             return
             
         # 获取统计数据（基于全部记录）
@@ -466,7 +478,14 @@ class CommandHandler:
             history_content += "\n..."
             
         # 构建完整结果
-        result = f"📚 {target_nickname} 的人品历史记录\n[显示 {display_count}/{total_count}]\n{history_content}\n\n📊 统计信息:\n平均人品值: {stats['avg']}\n最高人品值: {stats['max']}\n最低人品值: {stats['min']}"
+        # 获取target用户信息以支持{target_card}变量
+        if target_user_id != event.get_sender_id():
+            target_user_info = await self.user_info.get_user_info(event, target_user_id)
+            target_card = target_user_info["card"] or target_nickname
+        else:
+            target_card = target_nickname
+            
+        result = f"📚 {target_card} 的人品历史记录\n[显示 {display_count}/{total_count}]\n{history_content}\n\n📊 统计信息:\n平均人品值: {stats['avg']}\n最高人品值: {stats['max']}\n最低人品值: {stats['min']}"
         
         yield event.plain_result(result)
         
@@ -508,15 +527,29 @@ class CommandHandler:
             
         # 检查确认参数
         if confirm != "--confirm" and not self._has_confirm_param(event):
-            action_desc = f"{target_nickname} 的" if is_target_others else "您的"
-            cmd_example = f"/jrrpinit @{target_nickname} --confirm" if is_target_others else "/jrrpinit --confirm"
+            # 获取用户信息以支持{target_card}变量
+            if is_target_others:
+                target_user_info = await self.user_info.get_user_info(event, target_user_id)
+                target_card = target_user_info["card"] or target_nickname
+                action_desc = f"{target_card} 的"
+                cmd_example = f"/jrrpinit @{target_card} --confirm"
+            else:
+                action_desc = "您的"
+                cmd_example = "/jrrpinit --confirm"
             yield event.plain_result(f"⚠️ 警告：此操作将删除 {action_desc}今日人品记录，使其可以重新随机！\n如确认初始化，请使用：{cmd_example}")
             return
             
         today = self.algorithm.get_today_key()
         deleted = self.storage.clear_today_fortune(today, target_user_id)
         
-        action_desc = f"{target_nickname} 的" if is_target_others else "您的"
+        # 获取用户信息以支持{target_card}变量
+        if is_target_others:
+            target_user_info = await self.user_info.get_user_info(event, target_user_id)
+            target_card = target_user_info["card"] or target_nickname
+            action_desc = f"{target_card} 的"
+        else:
+            action_desc = "您的"
+            
         if deleted:
             yield event.plain_result(f"✅ 已初始化 {action_desc}今日人品记录，现在可以重新使用 /jrrp 随机人品值了")
         else:

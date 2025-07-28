@@ -78,11 +78,17 @@
     "default": false,
     "hint": "开启后，@查询他人时会显示对方首次生成的完整运势结果"
   },
+  "replay_template": {
+    "description": "@查询他人时场景还原提示模板",
+    "type": "string",
+    "default": "-----以下为{target_card}的今日运势测算场景还原-----",
+    "hint": "支持变量: {target_nickname}, {target_card}, {target_title}, {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji} 等所有变量"
+  },
   "others_not_queried_message": {
     "description": "@查询他人但对方未查询时的提示信息",
     "type": "string",
     "default": "{target_nickname} 今天还没有查询过人品值呢~",
-    "hint": "支持变量: {target_nickname}, {target_user_id}, {sender_nickname}, {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji}, {process}, {advice}, {avgjrrp}, {maxjrrp}, {minjrrp}, {ranks}, {medal}, {medals}, {ranges_jrrp}, {ranges_fortune}, {ranges_emoji}"
+        "hint": "支持变量: {target_nickname}, {target_user_id}, {target_card}, {target_title}, {sender_nickname}, {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji}, {process}, {advice}, {avgjrrp}, {maxjrrp}, {minjrrp}, {ranks}, {medal}, {medals}, {ranges_jrrp}, {ranges_fortune}, {ranges_emoji}"
   },
   "history_display_count": {
     "description": "历史记录显示数量",
@@ -152,6 +158,18 @@
     "description": "显示模板配置",
     "type": "object",
     "items": {
+      "enable_tip_template": {
+        "description": "是否在首次查询结果模板前添加提示内容",
+        "type": "bool",
+        "default": false,
+        "hint": "开启后会在首次查询结果前显示tip_template内容"
+      },
+      "tip_template": {
+        "description": "首次查询结果前的提示模板",
+        "type": "string",
+        "default": "-----以下为{card}的今日运势测算结果-----",
+        "hint": "支持变量: {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji} 等所有变量"
+      },
       "resault_template": {
         "description": "首次查询结果模板",
         "type": "text",
@@ -161,7 +179,7 @@
       "query_template": {
         "description": "再次查询结果模板",
         "type": "text",
-        "default": "📌 今日人品\n{nickname}，今天已经查询过了哦~\n今日人品值: {jrrp}\n运势: {fortune} {femoji}",
+        "default": "📌 今日人品\n{card}，今天已经查询过了哦~\n今日人品值: {jrrp}\n运势: {fortune} {femoji}",
         "hint": "支持变量: {nickname}, {jrrp}, {fortune}, {femoji}"
       },
       "rank_template": {
