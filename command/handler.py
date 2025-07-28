@@ -340,7 +340,7 @@ class CommandHandler:
                 advice=advice
             )
             
-            # 缓存结果
+            # 缓存结果（包含群聊信息）
             fortune_data = {
                 "jrrp": jrrp,
                 "fortune": fortune,
@@ -348,6 +348,7 @@ class CommandHandler:
                 "advice": advice,
                 "result": result,
                 "nickname": nickname,
+                "group_id": event.get_group_id() or "",  # 记录查询时的群聊ID
                 "timestamp": datetime.now().isoformat()
             }
             self.storage.save_today_fortune(today, user_id, fortune_data)
@@ -376,22 +377,11 @@ class CommandHandler:
             yield event.plain_result("今天还没有人查询过人品值呢~")
             return
             
-        # 过滤出当前群聊内的成员数据
+        # 过滤出在当前群聊中查询过的用户
         group_data = []
         for user_id, data in today_fortunes.items():
-            # 检查是否是当前群聊的成员（基于用户信息获取）
-            try:
-                user_info = await self.user_info.get_user_info(event, user_id)
-                # 如果能成功获取到该用户在当前群的信息，说明是群成员
-                if user_info.get("group_id") == current_group_id or not user_info.get("group_id"):
-                    group_data.append({
-                        "user_id": user_id,
-                        "nickname": user_info.get("nickname", data.get("nickname", "未知")),
-                        "jrrp": data["jrrp"],
-                        "fortune": data.get("fortune", "未知")
-                    })
-            except Exception:
-                # 如果获取用户信息失败，使用缓存的昵称
+            # 检查用户是否在当前群聊中查询过
+            if data.get("group_id") == current_group_id:
                 group_data.append({
                     "user_id": user_id,
                     "nickname": data.get("nickname", "未知"),
