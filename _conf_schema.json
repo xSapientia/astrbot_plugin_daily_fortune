@@ -75,7 +75,7 @@
   "show_others_cached_result": {
     "description": "@查询他人时是否显示对方缓存的完整结果",
     "type": "bool",
-    "default": false,
+    "default": true,
     "hint": "开启后，@查询他人时会显示对方首次生成的完整运势结果"
   },
   "replay_template": {
@@ -161,7 +161,7 @@
       "enable_tip_template": {
         "description": "是否在首次查询结果模板前添加提示内容",
         "type": "bool",
-        "default": false,
+        "default": true,
         "hint": "开启后会在首次查询结果前显示tip_template内容"
       },
       "tip_template": {
