@@ -338,7 +338,7 @@ class CommandHandler:
             process, advice = await self.llm.generate_fortune_content(vars_dict)
             
             # 构建结果
-            result_template = self.config.get("templates", {}).get("resault_template",
+            result_template = self.config.get("templates", {}).get("result_template",
                 "🔮 {process}\n💎 人品值：{jrrp}\n✨ 运势：{fortune}\n💬 建议：{advice}")
                 
             result = result_template.format(
@@ -352,7 +352,6 @@ class CommandHandler:
             if self.config.get("templates", {}).get("enable_tip_template", False):
                 tip_template = self.config.get("templates", {}).get("tip_template", "-----以下为{card}的今日运势测算结果-----")
                 tip_text = tip_template.format(**vars_dict)
-                result = f"{tip_text}\n{result}"
             
             # 缓存结果（包含群聊信息）
             fortune_data = {
