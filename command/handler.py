@@ -275,7 +275,7 @@ class CommandHandler:
             # 准备变量字典
             vars_dict = {
                 "nickname": nickname,
-                "card": user_info["card"],
+                "card": user_info["card"] or nickname,  # 添加fallback机制
                 "title": user_info["title"],
                 "jrrp": jrrp,
                 "fortune": fortune,
@@ -328,7 +328,7 @@ class CommandHandler:
             vars_dict = {
                 "user_id": user_id,
                 "nickname": nickname,
-                "card": user_info["card"],
+                "card": user_info["card"] or nickname,  # 添加fallback机制
                 "title": user_info["title"],
                 "jrrp": jrrp,
                 "fortune": fortune,

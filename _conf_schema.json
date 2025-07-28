@@ -58,13 +58,13 @@
     "description": "开始检测提示文本",
     "type": "string",
     "default": "神秘的能量汇聚，{card}，你的命运即将显现，正在祈祷中...",
-    "hint": "支持变量: {nickname}。首次查询时显示此消息"
+    "hint": "支持变量: {nickname}, {card}, {title}。首次查询时显示此消息"
   },
   "processing_message": {
     "description": "正在检测中提示文本",
     "type": "string",
     "default": "已经在努力获取 {card} 的命运了哦~",
-    "hint": "支持变量: {nickname}。当用户在生成结果期间重复调用时显示此消息"
+    "hint": "支持变量: {nickname}, {card}, {title}。当用户在生成结果期间重复调用时显示此消息"
   },
   "show_cached_result": {
     "description": "查询时是否显示缓存的完整结果",
