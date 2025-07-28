@@ -86,13 +86,35 @@ class UserInfoManager:
                 return None
                 
             tip_content = message_str[start_idx + 5:end_idx].strip()
+            logger.debug(f"[UserInfoManager] 提取到tip内容: {tip_content[:200]}...")
             
-            # 解析JSON
-            json_start = tip_content.find("{")
-            if json_start == -1:
-                return None
-                
-            json_str = tip_content[json_start:]
+            # 查找<Event, 后面的JSON内容
+            event_start = tip_content.find("<Event, ")
+            if event_start != -1:
+                # 从<Event, 后面开始查找{
+                json_start = tip_content.find("{", event_start)
+                if json_start != -1:
+                    # 查找最后一个>，在它之前应该是}
+                    last_gt = tip_content.rfind(">")
+                    if last_gt != -1:
+                        # 从}向前查找
+                        json_end = tip_content.rfind("}", json_start, last_gt)
+                        if json_end != -1:
+                            json_str = tip_content[json_start:json_end + 1]
+                        else:
+                            json_str = tip_content[json_start:]
+                    else:
+                        json_str = tip_content[json_start:]
+                else:
+                    return None
+            else:
+                # 备用方案：直接查找{
+                json_start = tip_content.find("{")
+                if json_start == -1:
+                    return None
+                json_str = tip_content[json_start:]
+            
+            logger.debug(f"[UserInfoManager] 提取到JSON字符串: {json_str[:100]}...")
             
             # 修复JSON格式
             json_str = self._fix_json(json_str)
@@ -100,6 +122,7 @@ class UserInfoManager:
                 return None
                 
             data = json.loads(json_str)
+            logger.debug(f"[UserInfoManager] JSON解析成功")
             
             # 提取用户信息
             if target_user_id:
