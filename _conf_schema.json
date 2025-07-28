@@ -173,7 +173,7 @@
       "rank_board_template": {
         "description": "排行榜整体模板",
         "type": "text",
-        "default": "📊【今日人品排行榜】{date}\n━━━━━━━━━━━━━━━\n{ranks}",
+        "default": "📊【本群今日人品排行榜】{date}\n━━━━━━━━━━━━━━━\n{ranks}",
         "hint": "支持变量: {date}, {ranks}"
       },
       "history_template": {
