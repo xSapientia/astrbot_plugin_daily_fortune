@@ -225,10 +225,14 @@ class CommandHandler:
             result = query_template.format(**vars_dict)
             
             # 检查是否显示对方的缓存完整结果
-            if self.config.get("show_others_cached_result", False) and "result" in cached:
+            if self.config.get("show_others_cached_result", False):
                 replay_template = self.config.get("replay_template", "-----以下为{card}的今日运势测算场景还原-----")
                 replay_text = replay_template.format(**vars_dict)
-                result += f"\n\n{replay_text}\n{cached['result']}"
+                
+                # 优先使用pure_result（不包含tip_template），如果没有则使用result
+                replay_content = cached.get("pure_result", cached.get("result", ""))
+                if replay_content:
+                    result += f"\n\n{replay_text}\n{replay_content}"
                 
             yield event.plain_result(result)
             return
@@ -338,7 +342,7 @@ class CommandHandler:
             process, advice = await self.llm.generate_fortune_content(vars_dict)
             
             # 构建结果
-            result_template = self.config.get("templates", {}).get("result_template",
+            result_template = self.config.get("templates", {}).get("resault_template",
                 "🔮 {process}\n💎 人品值：{jrrp}\n✨ 运势：{fortune}\n💬 建议：{advice}")
                 
             result = result_template.format(
@@ -348,18 +352,23 @@ class CommandHandler:
                 advice=advice
             )
             
+            # 为@查询他人场景还原准备的纯净结果（不包含tip_template）
+            pure_result = result
+            
             # 检查是否需要添加提示模板
             if self.config.get("templates", {}).get("enable_tip_template", False):
                 tip_template = self.config.get("templates", {}).get("tip_template", "-----以下为{card}的今日运势测算结果-----")
                 tip_text = tip_template.format(**vars_dict)
+                result = f"{tip_text}\n{result}"
             
-            # 缓存结果（包含群聊信息）
+            # 缓存结果（包含群聊信息），保存两个版本
             fortune_data = {
                 "jrrp": jrrp,
                 "fortune": fortune,
                 "process": process,
                 "advice": advice,
-                "result": result,
+                "result": result,          # 包含tip_template的完整结果
+                "pure_result": pure_result, # 不包含tip_template的纯净结果
                 "nickname": nickname,
                 "group_id": event.get_group_id() or "",  # 记录查询时的群聊ID
                 "timestamp": datetime.now().isoformat()

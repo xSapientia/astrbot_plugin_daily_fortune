@@ -81,7 +81,7 @@
   "replay_template": {
     "description": "@查询他人时场景还原提示模板",
     "type": "text",
-    "default": "-----以下为{card}的今日运势测算场景还原-----",
+    "default": "-----以下为今日运势测算场景还原-----\n{card}",
     "hint": "支持变量: {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji} 等所有变量。注意：有@对象时{card}为被@用户群名片，{nickname}为被@用户昵称；无@对象时为发送者信息"
   },
   "others_not_queried_message": {
@@ -166,8 +166,8 @@
       },
       "tip_template": {
         "description": "首次查询结果前的提示模板",
-        "type": "string",
-        "default": "-----以下为{card}的今日运势测算结果-----",
+        "type": "text",
+        "default": "-----以下为今日运势测算结果-----\n{card}",
         "hint": "支持变量: {nickname}, {card}, {title}, {date}, {jrrp}, {fortune}, {femoji} 等所有变量"
       },
       "resault_template": {
