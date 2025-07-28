@@ -377,50 +377,8 @@ class CommandHandler:
             yield event.plain_result("今天还没有人查询过人品值呢~")
             return
             
-        # 过滤出当前群内的成员（不管在哪里测过人品）
-        group_data = []
-        
-        # 如果是aiocqhttp平台，可以精确检查群成员
-        if event.get_platform_name() == "aiocqhttp":
-            from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
-            if isinstance(event, AiocqhttpMessageEvent):
-                client = event.bot
-                
-                for user_id, data in today_fortunes.items():
-                    try:
-                        # 直接调用API检查用户是否为当前群成员
-                        member_info = await client.get_group_member_info(
-                            user_id=int(user_id), group_id=int(current_group_id)
-                        )
-                        # 如果API调用成功，说明是群成员
-                        nickname = member_info.get("card") or member_info.get("nickname") or data.get("nickname", "未知")
-                        group_data.append({
-                            "user_id": user_id,
-                            "nickname": nickname,
-                            "jrrp": data["jrrp"],
-                            "fortune": data.get("fortune", "未知")
-                        })
-                    except Exception as e:
-                        logger.debug(f"[jrrprank] 用户{user_id}不是当前群成员或API调用失败: {e}")
-                        # API失败说明不是群成员，跳过
-                        continue
-        else:
-            # 其他平台，使用通用逻辑（可能不够精确）
-            for user_id, data in today_fortunes.items():
-                try:
-                    user_info = await self.user_info.get_user_info(event, user_id)
-                    # 简单检查，可能需要根据具体平台调整
-                    if user_info.get("group_id") == current_group_id:
-                        nickname = user_info.get("nickname", data.get("nickname", "未知"))
-                        group_data.append({
-                            "user_id": user_id,
-                            "nickname": nickname,
-                            "jrrp": data["jrrp"],
-                            "fortune": data.get("fortune", "未知")
-                        })
-                except Exception as e:
-                    logger.debug(f"[jrrprank] 获取用户{user_id}信息失败: {e}")
-                    continue
+        # 使用高效的群成员缓存机制
+        group_data = await self._get_group_ranking_data(event, today_fortunes, current_group_id)
             
         if not group_data:
             yield event.plain_result("本群今天还没有人查询过人品值呢~")
@@ -578,3 +536,99 @@ class CommandHandler:
         self.storage.reset_all_data()
         
         yield event.plain_result("✅ 所有人品数据已重置")
+    
+    async def _get_group_ranking_data(self, event: AstrMessageEvent, today_fortunes: dict, current_group_id: str) -> list:
+        """
+        高效获取群排行榜数据
+        使用群成员缓存机制，避免逐个API调用
+        """
+        group_data = []
+        
+        # 如果是aiocqhttp平台，使用高效的批量获取
+        if event.get_platform_name() == "aiocqhttp":
+            from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
+            if isinstance(event, AiocqhttpMessageEvent):
+                client = event.bot
+                
+                try:
+                    # 一次性获取整个群的成员列表
+                    group_members = await client.get_group_member_list(group_id=int(current_group_id))
+                    
+                    # 建立群成员ID集合，快速查找
+                    member_ids = {str(member.get("user_id")) for member in group_members}
+                    
+                    # 只处理群成员的数据
+                    for user_id, data in today_fortunes.items():
+                        if user_id in member_ids:
+                            # 从群成员列表中找到对应的详细信息
+                            member_info = next((m for m in group_members if str(m.get("user_id")) == user_id), {})
+                            nickname = member_info.get("card") or member_info.get("nickname") or data.get("nickname", "未知")
+                            
+                            group_data.append({
+                                "user_id": user_id,
+                                "nickname": nickname,
+                                "jrrp": data["jrrp"],
+                                "fortune": data.get("fortune", "未知")
+                            })
+                            
+                    logger.debug(f"[jrrprank] 高效模式：群成员{len(group_members)}人，有人品数据{len(group_data)}人")
+                    
+                except Exception as e:
+                    logger.warning(f"[jrrprank] 批量获取群成员失败，回退到逐个检查: {e}")
+                    # 回退到原来的逐个检查方式
+                    group_data = await self._fallback_group_ranking_data(event, today_fortunes, current_group_id)
+        else:
+            # 其他平台，使用通用逻辑（可能不够精确）
+            group_data = await self._fallback_group_ranking_data(event, today_fortunes, current_group_id)
+            
+        return group_data
+    
+    async def _fallback_group_ranking_data(self, event: AstrMessageEvent, today_fortunes: dict, current_group_id: str) -> list:
+        """
+        降级的群排行榜数据获取方式
+        当批量获取失败时使用
+        """
+        group_data = []
+        
+        if event.get_platform_name() == "aiocqhttp":
+            from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
+            if isinstance(event, AiocqhttpMessageEvent):
+                client = event.bot
+                
+                for user_id, data in today_fortunes.items():
+                    try:
+                        # 逐个检查用户是否为当前群成员
+                        member_info = await client.get_group_member_info(
+                            user_id=int(user_id), group_id=int(current_group_id)
+                        )
+                        # 如果API调用成功，说明是群成员
+                        nickname = member_info.get("card") or member_info.get("nickname") or data.get("nickname", "未知")
+                        group_data.append({
+                            "user_id": user_id,
+                            "nickname": nickname,
+                            "jrrp": data["jrrp"],
+                            "fortune": data.get("fortune", "未知")
+                        })
+                    except Exception as e:
+                        logger.debug(f"[jrrprank] 用户{user_id}不是当前群成员或API调用失败: {e}")
+                        # API失败说明不是群成员，跳过
+                        continue
+        else:
+            # 其他平台，使用通用逻辑（可能不够精确）
+            for user_id, data in today_fortunes.items():
+                try:
+                    user_info = await self.user_info.get_user_info(event, user_id)
+                    # 简单检查，可能需要根据具体平台调整
+                    if user_info.get("group_id") == current_group_id:
+                        nickname = user_info.get("nickname", data.get("nickname", "未知"))
+                        group_data.append({
+                            "user_id": user_id,
+                            "nickname": nickname,
+                            "jrrp": data["jrrp"],
+                            "fortune": data.get("fortune", "未知")
+                        })
+                except Exception as e:
+                    logger.debug(f"[jrrprank] 获取用户{user_id}信息失败: {e}")
+                    continue
+                    
+        return group_data
