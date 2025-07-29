@@ -249,7 +249,7 @@ class LLMManager:
         process_prompt = self.config.get("prompts", {}).get("process_prompt",
             "模拟你使用水晶球缓慢显现的过程，50字以内")
         advice_prompt = self.config.get("prompts", {}).get("advice_prompt",
-            "人品值分段为{ranges_jrrp}，对应运势是{ranges_fortune}\n{user_id}今日人品值{jrrp}\n直接给出你的评语和建议，50字以内")
+            "人品值分段为{ranges_jrrp}，对应运势是{ranges_fortune}\n上述作为人品值好坏的参考，不得在输出内容中出现，接下来，\n对{user_id}的今日人品值{jrrp}给出你的评语和建议，50字以内")
             
         # 格式化提示词
         formatted_process_prompt = process_prompt.format(**vars_dict)
