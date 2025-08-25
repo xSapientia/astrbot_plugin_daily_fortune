@@ -318,7 +318,7 @@ class LLMManager:
                 
         except asyncio.TimeoutError:
             logger.error("[daily_fortune] LLM生成超时")
-            return "水晶球中浮现出「超时这一块…」", "保持乐观的心态，肘击美好未来。"
+            return "水晶球中浮现出「获取困难」的回响", "保持乐观的心态，好运自然来。"
         except Exception as e:
             logger.error(f"[daily_fortune] LLM生成失败: {e}")
-            return "水晶球中浮现出「未知错误这一块…」", "保持乐观的心态，肘出神秘未来。"
+            return "水晶球中浮现出「难以窥视」的回响", "保持乐观的心态，好运自然来。"
