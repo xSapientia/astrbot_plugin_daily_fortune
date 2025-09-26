@@ -494,7 +494,7 @@ class CommandHandler:
         
         for date_time, data in displayed_items:
             # 显示完整的日期时间信息
-            history_lines.append(f"{date_time}: {data['jrrp']} ({data['fortune']})")
+            history_lines.append(f"[{date_time}] {data['jrrp']} ({data['fortune']})")
             
         # 构建显示内容
         history_content = "\n".join(history_lines)
