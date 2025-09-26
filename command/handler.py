@@ -488,12 +488,13 @@ class CommandHandler:
         if display_count > total_count:
             display_count = total_count
             
-        # 构建历史记录列表（显示最近的记录）
+        # 构建历史记录列表（显示最近的记录，包含完整时间信息）
         history_lines = []
         displayed_items = list(full_user_history.items())[:display_count]
         
-        for date, data in displayed_items:
-            history_lines.append(f"{date}: {data['jrrp']} ({data['fortune']})")
+        for date_time, data in displayed_items:
+            # 显示完整的日期时间信息
+            history_lines.append(f"{date_time}: {data['jrrp']} ({data['fortune']})")
             
         # 构建显示内容
         history_content = "\n".join(history_lines)
