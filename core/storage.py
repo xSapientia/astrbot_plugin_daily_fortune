@@ -94,11 +94,12 @@ class Storage:
         self.daily_data[today][user_id] = fortune_data
         self._save_data(self.daily_data, self.fortune_file)
         
-        # 同时更新历史记录
+        # 同时更新历史记录（使用详细时间戳作为key）
         if user_id not in self.history_data:
             self.history_data[user_id] = {}
             
-        self.history_data[user_id][today] = {
+        timestamp = fortune_data.get("timestamp", today)  # 使用详细时间戳，fallback到today
+        self.history_data[user_id][timestamp] = {
             "jrrp": fortune_data["jrrp"],
             "fortune": fortune_data["fortune"]
         }
@@ -142,19 +143,25 @@ class Storage:
         
         Args:
             user_id: 用户ID
-            today: 今日日期字符串
+            today: 今日日期字符串（格式：YYYY-MM-DD）
             
         Returns:
             删除的记录数
         """
         deleted_count = 0
         
-        # 删除历史记录（保留今日）
+        # 删除历史记录（保留今日，历史记录的key可能是详细时间戳）
         if user_id in self.history_data:
             user_history = self.history_data[user_id]
-            dates_to_delete = [date for date in user_history.keys() if date != today]
-            for date in dates_to_delete:
-                del user_history[date]
+            dates_to_delete = []
+            for timestamp in user_history.keys():
+                # 提取日期部分进行比较（处理时间戳格式：YYYY-MM-DD HH:MM:SS）
+                date_part = timestamp.split(' ')[0] if ' ' in timestamp else timestamp
+                if date_part != today:
+                    dates_to_delete.append(timestamp)
+                    
+            for timestamp in dates_to_delete:
+                del user_history[timestamp]
                 deleted_count += 1
                 
             # 如果历史记录为空，删除整个用户记录
@@ -182,7 +189,7 @@ class Storage:
         清除用户今日运势记录
         
         Args:
-            today: 今日日期字符串
+            today: 今日日期字符串（格式：YYYY-MM-DD）
             user_id: 用户ID
             
         Returns:
@@ -199,14 +206,26 @@ class Storage:
                 del self.daily_data[today]
             self._save_data(self.daily_data, self.fortune_file)
             
-        # 删除今日历史记录
-        if user_id in self.history_data and today in self.history_data[user_id]:
-            del self.history_data[user_id][today]
-            deleted = True
+        # 删除今日历史记录（历史记录的key可能是详细时间戳）
+        if user_id in self.history_data:
+            user_history = self.history_data[user_id]
+            timestamps_to_delete = []
+            for timestamp in user_history.keys():
+                # 提取日期部分进行比较（处理时间戳格式：YYYY-MM-DD HH:MM:SS）
+                date_part = timestamp.split(' ')[0] if ' ' in timestamp else timestamp
+                if date_part == today:
+                    timestamps_to_delete.append(timestamp)
+                    
+            for timestamp in timestamps_to_delete:
+                del user_history[timestamp]
+                deleted = True
+                
             # 如果历史记录为空，删除整个用户记录
-            if not self.history_data[user_id]:
+            if not user_history:
                 del self.history_data[user_id]
-            self._save_data(self.history_data, self.history_file)
+                
+            if timestamps_to_delete:  # 只有在删除了记录时才保存
+                self._save_data(self.history_data, self.history_file)
             
         # 从正在处理的集合中移除（如果存在）
         self.remove_processing_user(user_id)

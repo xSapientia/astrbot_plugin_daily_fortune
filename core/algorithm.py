@@ -100,7 +100,11 @@ class FortuneAlgorithm:
         logger.info(f"[daily_fortune] 运势等级映射已初始化，共 {len(self.fortune_levels)} 个等级")
         
     def get_today_key(self) -> str:
-        """获取今日日期时间作为key，精确到秒"""
+        """获取今日日期作为key，确保每日只能测试一次"""
+        return datetime.now().strftime("%Y-%m-%d")
+        
+    def get_current_timestamp(self) -> str:
+        """获取当前时间戳，用于存储测试时间"""
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
     def calculate_jrrp(self, user_id: str) -> int:

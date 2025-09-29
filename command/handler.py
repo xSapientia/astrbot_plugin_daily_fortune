@@ -377,7 +377,7 @@ class CommandHandler:
                 "pure_result": pure_result, # 不包含tip_template的纯净结果
                 "nickname": nickname,
                 "group_id": event.get_group_id() or "",  # 记录查询时的群聊ID
-                "timestamp": datetime.now().isoformat()
+                "timestamp": self.algorithm.get_current_timestamp()  # 使用详细时间戳
             }
             self.storage.save_today_fortune(today, user_id, fortune_data)
             
