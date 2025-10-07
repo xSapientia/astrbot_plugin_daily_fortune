@@ -285,27 +285,54 @@ class LLMManager:
                 logger.debug(f"[daily_fortune] LLM原始回复: {content}")
                 
                 # 从回复中提取{process}和{advice}
-                # 尝试按行分割并识别🔮和💬行，同时处理#评语标签
+                # 尝试按行分割并识别🔮和💬行，同时处理#评语标签和多行建议
                 lines = content.split('\n')
                 process = "水晶球中浮现出神秘的光芒..."
                 advice = "保持乐观的心态，好运自然来。"
                 
-                # 标记是否在#评语区域内
+                # 标记是否在#评语区域内或💬建议区域内
                 in_comment_section = False
+                in_advice_section = False
                 comment_lines = []
+                advice_lines = []
                 
-                for line in lines:
+                for i, line in enumerate(lines):
                     line = line.strip()
                     if line.startswith('🔮'):
                         # 提取🔮后面的内容作为过程
                         process = line[2:].strip()
                     elif line.startswith('💬'):
-                        # 提取💬后面的内容，去掉"建议："等前缀
+                        # 开始建议区域，提取💬后面的内容，去掉"建议："等前缀
                         advice_content = line[2:].strip()
                         if advice_content.startswith('建议：'):
-                            advice = advice_content[3:].strip()
+                            advice_content = advice_content[3:].strip()
+                        
+                        # 如果💬行有内容，添加到建议行
+                        if advice_content:
+                            advice_lines = [advice_content]
                         else:
-                            advice = advice_content
+                            advice_lines = []
+                        
+                        # 标记进入建议区域，收集后续的建议内容
+                        in_advice_section = True
+                        
+                        # 继续收集💬行之后的所有非空行作为建议的延续
+                        for j in range(i + 1, len(lines)):
+                            next_line = lines[j].strip()
+                            # 如果遇到新的emoji标记或#标题，停止收集
+                            if (next_line.startswith('💎') or next_line.startswith('✨') or 
+                                next_line.startswith('🔮') or next_line.startswith('💬') or
+                                next_line.startswith('#')):
+                                break
+                            # 收集非空行
+                            if next_line:
+                                advice_lines.append(next_line)
+                        
+                        # 合并所有建议行
+                        if advice_lines:
+                            advice = ' '.join(advice_lines)
+                        break  # 找到💬后就不再继续遍历
+                        
                     elif line.startswith('#评语') or line.startswith('# 评语'):
                         # 进入评语区域
                         in_comment_section = True
