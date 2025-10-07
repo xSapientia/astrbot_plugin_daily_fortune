@@ -285,10 +285,14 @@ class LLMManager:
                 logger.debug(f"[daily_fortune] LLM原始回复: {content}")
                 
                 # 从回复中提取{process}和{advice}
-                # 尝试按行分割并识别🔮和💬行
+                # 尝试按行分割并识别🔮和💬行，同时处理#评语标签
                 lines = content.split('\n')
                 process = "水晶球中浮现出神秘的光芒..."
                 advice = "保持乐观的心态，好运自然来。"
+                
+                # 标记是否在#评语区域内
+                in_comment_section = False
+                comment_lines = []
                 
                 for line in lines:
                     line = line.strip()
@@ -302,6 +306,21 @@ class LLMManager:
                             advice = advice_content[3:].strip()
                         else:
                             advice = advice_content
+                    elif line.startswith('#评语') or line.startswith('# 评语'):
+                        # 进入评语区域
+                        in_comment_section = True
+                        comment_lines = []
+                    elif in_comment_section:
+                        # 在评语区域内，收集所有非空行
+                        if line and not line.startswith('#') and not line.startswith('---'):
+                            comment_lines.append(line)
+                        elif line.startswith('#') and line != '#评语' and line != '# 评语':
+                            # 遇到新的标题，退出评语区域
+                            in_comment_section = False
+                
+                # 如果收集到了评语内容，优先使用评语内容作为建议
+                if comment_lines:
+                    advice = ' '.join(comment_lines)
                 
                 # 清理内容并限制长度
                 process = re.sub(r'\s+', ' ', process).strip()
