@@ -136,6 +136,18 @@
     "default": "",
     "hint": "留空使用AstrBot默认人格，填写则使用指定的人格"
   },
+  "max_process_length": {
+    "description": "占卜过程最大字符长度",
+    "type": "int",
+    "default": 0,
+    "hint": "LLM生成的占卜过程内容的最大字符长度限制，设置为0表示不限制长度"
+  },
+  "max_advice_length": {
+    "description": "建议内容最大字符长度",
+    "type": "int",
+    "default": 0,
+    "hint": "LLM生成的建议内容的最大字符长度限制，设置为0表示不限制长度"
+  },
   "prompts": {
     "description": "LLM提示词配置",
     "type": "object",

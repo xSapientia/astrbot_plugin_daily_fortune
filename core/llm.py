@@ -349,12 +349,22 @@ class LLMManager:
                 if comment_lines:
                     advice = ' '.join(comment_lines)
                 
-                # 清理内容并限制长度
+                # 清理内容，移除硬编码长度限制
                 process = re.sub(r'\s+', ' ', process).strip()
                 advice = re.sub(r'\s+', ' ', advice).strip()
                 
-                process = process[:100] if len(process) > 100 else process
-                advice = advice[:100] if len(advice) > 100 else advice
+                # 从配置中获取长度限制，默认为更大的值以避免截断
+                max_process_length = self.config.get("max_process_length", 300)
+                max_advice_length = self.config.get("max_advice_length", 500)
+                
+                # 只有在配置明确限制且内容超长时才截断
+                if max_process_length > 0 and len(process) > max_process_length:
+                    process = process[:max_process_length]
+                    logger.debug(f"[daily_fortune] 过程内容被截断到{max_process_length}字符")
+                    
+                if max_advice_length > 0 and len(advice) > max_advice_length:
+                    advice = advice[:max_advice_length]
+                    logger.debug(f"[daily_fortune] 建议内容被截断到{max_advice_length}字符")
                 
                 logger.debug(f"[daily_fortune] 提取结果 - 过程: {process[:20]}... 建议: {advice[:20]}...")
                 return process, advice
